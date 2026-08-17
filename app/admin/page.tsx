@@ -23,23 +23,38 @@ export default function AdminPortal() {
   const [filter,setFilter] = useState("pending");
   const [busy,setBusy] = useState(false);
   const [message,setMessage] = useState("");
+  const [dataReady,setDataReady] = useState(false);
   const [deleteTarget,setDeleteTarget] = useState<Listing | null>(null);
   const [reviewTarget,setReviewTarget] = useState<Listing | null>(null);
 
   const loadDashboard = useCallback(async () => {
-    const [adverts,transactions,reported,activity,requests] = await Promise.all([
+    setDataReady(false);
+    const fetchDashboard = () => Promise.all([
       supabase.from("listings").select("*").order("created_at",{ascending:false}),
       supabase.from("payments").select("*").order("created_at",{ascending:false}),
       supabase.from("listing_reports").select("*").order("created_at",{ascending:false}),
       supabase.from("analytics_events").select("id,event_name,created_at").order("created_at",{ascending:false}).limit(500),
       supabase.from("support_requests").select("*").order("created_at",{ascending:false}),
     ]);
-    if (adverts.error || transactions.error || reported.error || activity.error || requests.error) return setMessage(adverts.error?.message || transactions.error?.message || reported.error?.message || activity.error?.message || requests.error?.message || "Dashboard data could not be loaded.");
+    let [adverts,transactions,reported,activity,requests] = await fetchDashboard();
+    const firstError = adverts.error || transactions.error || reported.error || activity.error || requests.error;
+    if (firstError?.message.toLowerCase().includes("jwt issued at future")) {
+      await new Promise(resolve => setTimeout(resolve,4000));
+      await supabase.auth.refreshSession();
+      [adverts,transactions,reported,activity,requests] = await fetchDashboard();
+    }
+    const finalError = adverts.error || transactions.error || reported.error || activity.error || requests.error;
+    if (finalError) {
+      setMessage(finalError.message.toLowerCase().includes("jwt issued at future") ? "Your saved data is safe, but the secure session could not be verified. Set Windows date and time to automatic, then sign in again." : `Saved data could not be loaded: ${finalError.message}`);
+      return;
+    }
     setListings((adverts.data || []) as Listing[]);
     setPayments((transactions.data || []) as Payment[]);
     setReports((reported.data || []) as Report[]);
     setEvents((activity.data || []) as AnalyticsEvent[]);
     setSupport((requests.data || []) as SupportRequest[]);
+    setDataReady(true);
+    setMessage("");
   },[]);
 
   useEffect(() => { supabase.auth.getUser().then(async ({data,error}) => {
@@ -56,7 +71,7 @@ export default function AdminPortal() {
     setState("ready"); await loadDashboard(); setBusy(false);
   }
 
-  async function signOut() { await supabase.auth.signOut(); setListings([]); setPayments([]); setState("signed_out"); }
+  async function signOut() { await supabase.auth.signOut(); setListings([]); setPayments([]); setDataReady(false); setState("signed_out"); }
   async function moderate(id:string,status:"approved"|"rejected") {
     const reason = status === "rejected" ? window.prompt("Reason for rejecting this advert:") : null;
     if (status === "rejected" && reason === null) return;
@@ -87,7 +102,7 @@ export default function AdminPortal() {
     <header className="admin-header"><a href="/"><span>◎</span><b>Ship Dealers</b><small>Administration</small></a><div><span>Secure owner portal</span><button onClick={signOut}>Sign out</button></div></header>
     <section className="admin-title"><div><p>ADMIN CONTROL CENTRE</p><h1>Marketplace overview</h1></div><a href="/">View customer website</a></section>
     {message && <div className="admin-notice" role="status">{message}</div>}
-    <section className="admin-stats"><article><small>Pending approval</small><b>{listings.filter(item => item.status === "pending").length}</b></article><article><small>Active adverts</small><b>{listings.filter(item => item.status === "approved").length}</b></article><article><small>Open reports</small><b>{reports.filter(item=>item.status==="open").length}</b></article><article><small>Product views</small><b>{events.filter(item=>item.event_name==="listing_view").length}</b></article><article><small>Successful payments</small><b>{successful.length}</b></article><article><small>Revenue</small><b>GH₵ {revenue.toLocaleString("en-GH")}</b></article></section>
+    <section className="admin-stats"><article><small>Pending approval</small><b>{dataReady?listings.filter(item => item.status === "pending").length:"—"}</b></article><article><small>Active adverts</small><b>{dataReady?listings.filter(item => item.status === "approved").length:"—"}</b></article><article><small>Open reports</small><b>{dataReady?reports.filter(item=>item.status==="open").length:"—"}</b></article><article><small>Product views</small><b>{dataReady?events.filter(item=>item.event_name==="listing_view").length:"—"}</b></article><article><small>Successful payments</small><b>{dataReady?successful.length:"—"}</b></article><article><small>Revenue</small><b>{dataReady?`GH₵ ${revenue.toLocaleString("en-GH")}`:"—"}</b></article></section>
     <section className="admin-workspace">
       <div className="admin-section-head"><div><p>LISTING MODERATION</p><h2>Adverts</h2></div><nav>{["pending","approved","rejected","all"].map(item => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}</nav></div>
       {visible.length === 0 ? <div className="admin-empty">No {filter === "all" ? "" : filter} adverts found.</div> : <div className="admin-listings">{visible.map(item => <article key={item.id} className="admin-listing-card" onClick={() => setReviewTarget(item)}><img src={item.image_urls[0]} alt=""/><div><small>{item.category} · {item.location}</small><h3>{item.title}</h3><p>{item.seller_name} · {item.phone}</p><b>GH₵ {Number(item.price).toLocaleString("en-GH")}</b><span className={`admin-status ${item.status}`}>{item.status}</span><button className="review-link" onClick={() => setReviewTarget(item)}>View full advert</button></div><aside onClick={event => event.stopPropagation()}>{item.status === "pending" && <><button className="approve" disabled={busy} onClick={() => moderate(item.id,"approved")}>Approve</button><button disabled={busy} onClick={() => moderate(item.id,"rejected")}>Reject</button></>}<button className="delete" disabled={busy} onClick={() => setDeleteTarget(item)}>Delete</button></aside></article>)}</div>}
