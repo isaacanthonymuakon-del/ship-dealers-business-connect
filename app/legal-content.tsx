@@ -1,0 +1,2 @@
+import "./legal.css";
+export default function LegalPage({title,kicker,children}:{title:string;kicker:string;children:React.ReactNode}){return <main className="legal-page"><header className="legal-header"><a href="/"><span>◎</span>Ship Dealers Business Connect</a></header><article className="legal-content"><p className="kicker">{kicker}</p><h1>{title}</h1>{children}<p><a href="/">Return to marketplace</a></p></article></main>}

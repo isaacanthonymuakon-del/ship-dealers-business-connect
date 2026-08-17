@@ -1,0 +1,28 @@
+.brand {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -.2px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.brand b { font-size: 18px; }
+
+.brand .web-logo {
+  width: 35px;
+  height: 35px;
+  border: 2px solid var(--orange);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--orange);
+  font-size: 24px;
+  line-height: 1;
+  box-shadow: inset 0 0 0 3px var(--cream);
+}
+
+@media (max-width: 540px) {
+  .brand { max-width: 210px; line-height: 1.1; }
+  .brand b { font-size: 15px; }
+}
