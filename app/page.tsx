@@ -125,6 +125,7 @@ const categories = [
 
 const PAGE_SIZE = 12;
 const DAY = 24 * 60 * 60 * 1000;
+const SUPPORT_TIMEOUT_MS = 12000;
 
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -450,19 +451,27 @@ export default function Home() {
 
     setSupportBusy(true);
     setSupportNotice("");
-    const { error } = await supabase.from("support_requests").insert({
-      user_id: memberId,
-      subject,
-      message,
-    });
-    setSupportNotice(error ? error.message : "Your support request has been received.");
-    if (!error) {
-      event.currentTarget.reset();
-      setSupportSubject("");
-      setSupportMessage("");
-      await loadPrimaryData();
+    try {
+      const { error } = await withTimeout(
+        supabase.from("support_requests").insert({
+          user_id: memberId,
+          subject,
+          message,
+        }),
+        "Support is taking too long to respond. Please try again in a moment.",
+      );
+      setSupportNotice(error ? error.message : "Your support request has been received.");
+      if (!error) {
+        event.currentTarget.reset();
+        setSupportSubject("");
+        setSupportMessage("");
+        await loadPrimaryData();
+      }
+    } catch (error) {
+      setSupportNotice(error instanceof Error ? error.message : "We could not send your support request.");
+    } finally {
+      setSupportBusy(false);
     }
-    setSupportBusy(false);
   }
 
   if (loading) {
@@ -851,6 +860,22 @@ export default function Home() {
       </main>
     </AuthGate>
   );
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), SUPPORT_TIMEOUT_MS);
+    Promise.resolve(promise).then(
+      value => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      error => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 function CustomerDashboard({
