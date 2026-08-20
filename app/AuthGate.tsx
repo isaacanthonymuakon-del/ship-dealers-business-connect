@@ -75,8 +75,19 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           return;
         }
 
+        const phoneLoginEmail = phoneToPrivateEmail(phone);
+        const existingAccount = await supabase.auth.signInWithPassword({
+          email: phoneLoginEmail,
+          password,
+        });
+        if (existingAccount.data.session) {
+          setSession(existingAccount.data.session);
+          setBusy(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
-          email: phoneToPrivateEmail(phone),
+          email: phoneLoginEmail,
           password,
           options: {
             data: { full_name: displayName, phone, sign_in_method: "phone" },
@@ -463,6 +474,9 @@ function formatAuthError(message: string) {
   }
   if (message.toLowerCase().includes("already registered")) {
     return "This account already exists. Sign in instead.";
+  }
+  if (message.toLowerCase().includes("rate limit")) {
+    return "Too many account attempts right now. If you already created this phone account, tap Sign in and use the same phone number and password.";
   }
   return message;
 }
