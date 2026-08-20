@@ -69,20 +69,24 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           setBusy(false);
           return;
         }
+        if (!displayName) {
+          setMessage("Enter your full name.");
+          setBusy(false);
+          return;
+        }
 
         const { data, error } = await supabase.auth.signUp({
-          phone,
+          email: phoneToPrivateEmail(phone),
           password,
           options: {
-            data: { full_name: displayName, phone },
-            channel: "sms",
+            data: { full_name: displayName, phone, sign_in_method: "phone" },
           },
         });
 
-        if (error) setMessage(error.message);
+        if (error) setMessage(formatAuthError(error.message));
         else if (!data.session) {
           setMessage(
-            "Account created. Complete the SMS verification if Supabase asks for it, then sign in with your phone number and password.",
+            "Account created. You can now sign in with your phone number and password.",
           );
         } else {
           setSession(data.session);
@@ -112,7 +116,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         setBusy(false);
         return;
       }
-      const { data, error } = await supabase.auth.signInWithPassword({ phone, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: phoneToPrivateEmail(phone),
+        password,
+      });
       if (error) setMessage(formatAuthError(error.message));
       else setSession(data.session);
     } else {
@@ -345,7 +352,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         <p className="auth-footnote">
           {signInMethod === "email"
             ? "Email verification is required before marketplace access."
-            : "Phone sign in may ask for SMS verification depending on your Supabase settings."}
+            : "Phone users can create an account with their registered phone number and password."}
         </p>
       </AuthShell>
     );
@@ -353,6 +360,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   const displayName = String(
     session.user.user_metadata?.full_name ||
+      session.user.user_metadata?.phone ||
       session.user.phone ||
       session.user.email ||
       "Member",
@@ -448,10 +456,13 @@ function AuthShell({
 
 function formatAuthError(message: string) {
   if (message === "Email not confirmed") {
-    return "Verify your email first, then sign in.";
+    return "Your account was created. If sign in is blocked, contact support so we can verify it for you.";
   }
   if (message.toLowerCase().includes("invalid login credentials")) {
-    return "The phone number or password is incorrect.";
+    return "The login details or password are incorrect.";
+  }
+  if (message.toLowerCase().includes("already registered")) {
+    return "This account already exists. Sign in instead.";
   }
   return message;
 }
@@ -465,4 +476,9 @@ function normalizePhoneNumber(value: string) {
   if (digits.startsWith("233")) return `+${digits}`;
   if (digits.startsWith("0")) return `+233${digits.slice(1)}`;
   return `+${digits}`;
+}
+
+function phoneToPrivateEmail(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return `phone-${digits}@shipdealersconnect.local`;
 }
