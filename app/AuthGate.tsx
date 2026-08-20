@@ -64,44 +64,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       }
 
       if (signInMethod === "phone") {
-        if (!phone) {
-          setMessage("Enter a valid registered phone number.");
-          setBusy(false);
-          return;
-        }
-        if (!displayName) {
-          setMessage("Enter your full name.");
-          setBusy(false);
-          return;
-        }
-
-        const phoneLoginEmail = phoneToPrivateEmail(phone);
-        const existingAccount = await supabase.auth.signInWithPassword({
-          email: phoneLoginEmail,
-          password,
-        });
-        if (existingAccount.data.session) {
-          setSession(existingAccount.data.session);
-          setBusy(false);
-          return;
-        }
-
-        const { data, error } = await supabase.auth.signUp({
-          email: phoneLoginEmail,
-          password,
-          options: {
-            data: { full_name: displayName, phone, sign_in_method: "phone" },
-          },
-        });
-
-        if (error) setMessage(formatAuthError(error.message));
-        else if (!data.session) {
-          setMessage(
-            "Account created. You can now sign in with your phone number and password.",
-          );
-        } else {
-          setSession(data.session);
-        }
+        setMessage("Phone account creation is temporarily paused while SMS verification is being connected. Please create your account with email for now.");
       } else {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -268,6 +231,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             className={mode === "signup" ? "active" : ""}
             onClick={() => {
               setMode("signup");
+              if (signInMethod === "phone") setSignInMethod("email");
               setMessage("");
             }}
           >
@@ -299,7 +263,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
                 placeholder="you@email.com"
               />
             </label>
-          ) : (
+          ) : mode === "signin" ? (
             <label>
               Phone number
               <input
@@ -311,6 +275,12 @@ export default function AuthGate({ children }: { children: ReactNode }) {
                 placeholder="+233 24 000 0000"
               />
             </label>
+          ) : null}
+
+          {mode === "signup" && signInMethod === "phone" && (
+            <p className="auth-message" role="status">
+              Phone account creation is temporarily paused while SMS verification is being connected. Please use email to create your account today.
+            </p>
           )}
 
           <PasswordField
@@ -363,7 +333,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         <p className="auth-footnote">
           {signInMethod === "email"
             ? "Email verification is required before marketplace access."
-            : "Phone users can create an account with their registered phone number and password."}
+            : "Phone sign in is for already-created phone accounts. New users should create an account with email until SMS verification is connected."}
         </p>
       </AuthShell>
     );
