@@ -1,0 +1,40 @@
+.admin-price-tools {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid #dfe4e1;
+  background: #f8faf8;
+}
+
+.admin-price-tools h3 {
+  margin: 0 0 8px;
+  font: 800 24px Georgia;
+}
+
+.admin-price-tools p {
+  margin: 0 0 16px;
+  color: #62706a;
+}
+
+.admin-price-tools label {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-price-tools input,
+.admin-price-tools textarea {
+  border: 1px solid #c8d0cb;
+  padding: 13px;
+  font: 14px Arial;
+  background: #fff;
+}
+
+.admin-price-tools textarea {
+  resize: vertical;
+}
+
+.admin-price-tools .admin-review-actions {
+  justify-content: flex-end;
+}
