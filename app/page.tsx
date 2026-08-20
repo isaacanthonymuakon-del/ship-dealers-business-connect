@@ -416,7 +416,8 @@ export default function Home() {
     event.preventDefault();
     if (!activeThreadId || !memberId) return;
 
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const body = String(form.get("message") || "").trim();
     if (!body) return;
 
@@ -436,7 +437,7 @@ export default function Home() {
       .update({ last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", activeThreadId);
 
-    event.currentTarget.reset();
+    formElement.reset();
     await loadMemberData(memberId, activeThreadId);
   }
 
@@ -444,7 +445,8 @@ export default function Home() {
     event.preventDefault();
     if (!memberId) return;
 
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const subject = String(form.get("subject") || "").trim();
     const message = String(form.get("message") || "").trim();
     if (subject.length < 5 || message.length < 20) {
@@ -465,7 +467,7 @@ export default function Home() {
       );
       setSupportNotice(error ? error.message : "Your support request has been received.");
       if (!error) {
-        event.currentTarget.reset();
+        formElement.reset();
         setSupportSubject("");
         setSupportMessage("");
         await loadPrimaryData();
