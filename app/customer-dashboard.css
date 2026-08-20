@@ -463,3 +463,19 @@
     box-shadow: 0 18px 40px rgba(16, 46, 39, 0.25);
   }
 }
+
+.ticket-reply {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 4px solid #f2b735;
+  background: #fff8df;
+}
+
+.ticket-reply strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.ticket-reply p {
+  margin: 0 0 6px;
+}

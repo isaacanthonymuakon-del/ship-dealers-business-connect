@@ -95,6 +95,9 @@ type SupportRequest = {
   subject: string;
   message: string;
   status: string;
+  admin_reply: string | null;
+  replied_at: string | null;
+  replied_by_name: string | null;
   created_at: string;
 };
 
@@ -1287,6 +1290,16 @@ function SupportPanel({
                 <article key={ticket.id}>
                   <b>{ticket.subject}</b>
                   <p>{ticket.message}</p>
+                  {ticket.admin_reply && (
+                    <div className="ticket-reply">
+                      <strong>Support reply</strong>
+                      <p>{ticket.admin_reply}</p>
+                      <small>
+                        {ticket.replied_by_name || "Support team"}
+                        {ticket.replied_at ? ` · ${new Date(ticket.replied_at).toLocaleDateString("en-GH")}` : ""}
+                      </small>
+                    </div>
+                  )}
                   <small>
                     {new Date(ticket.created_at).toLocaleDateString("en-GH")} · {ticket.status}
                   </small>
