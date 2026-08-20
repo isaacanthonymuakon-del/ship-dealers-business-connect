@@ -12,6 +12,11 @@ export default function Support() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const subject = String(form.get("subject") || "").trim();
+    const message = String(form.get("message") || "").trim();
+
     setBusy(true);
     setNotice("");
     setTone("idle");
@@ -28,9 +33,6 @@ export default function Support() {
         return;
       }
 
-      const form = new FormData(event.currentTarget);
-      const subject = String(form.get("subject") || "").trim();
-      const message = String(form.get("message") || "").trim();
       const { error } = await withTimeout(
         supabase.from("support_requests").insert({
           user_id: data.user.id,
@@ -42,7 +44,7 @@ export default function Support() {
 
       setNotice(error ? error.message : "Your support request has been received.");
       setTone(error ? "error" : "success");
-      if (!error) event.currentTarget.reset();
+      if (!error) formElement.reset();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "We could not send your support request.");
       setTone("error");
