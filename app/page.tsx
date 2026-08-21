@@ -1686,9 +1686,11 @@ function ListingModal({
   const rating = sellerReviews.length ? sellerReviews.reduce((sum, review) => sum + review.rating, 0) / sellerReviews.length : 0;
   const wa = (listing.whatsapp || listing.phone).replace(/\D/g, "").replace(/^0/, "233");
   const sameSellerCount = listings.filter(item => item.seller_id === listing.seller_id && item.status === "approved").length;
-  const similarListings = listings
-    .filter(item => item.id !== listing.id && item.status === "approved" && (item.category === listing.category || item.location === listing.location))
-    .slice(0, 3);
+  const matchedSimilarListings = listings.filter(
+    item => item.id !== listing.id && item.status === "approved" && (item.category === listing.category || item.location === listing.location),
+  );
+  const fallbackSimilarListings = listings.filter(item => item.id !== listing.id && item.status === "approved");
+  const similarListings = (matchedSimilarListings.length ? matchedSimilarListings : fallbackSimilarListings).slice(0, 3);
   const createdAt = new Date(listing.created_at);
   const ageText = Number.isNaN(createdAt.getTime()) ? "Recently posted" : `${createdAt.toLocaleDateString("en-GH")} · ${createdAt.toLocaleTimeString("en-GH", { hour: "2-digit", minute: "2-digit" })}`;
 
@@ -1775,7 +1777,20 @@ function ListingModal({
   }
 
   function beginBuyerChat() {
+    if (mine) {
+      setNotice("Buyer preview: customers will use this button to start a chat, make an offer, or request a call back.");
+      return;
+    }
     void onOpenChat();
+  }
+
+  function openReportDialog() {
+    if (mine) {
+      setNotice("Buyer preview: customers can report unsafe adverts from here.");
+      return;
+    }
+    setTrustText("");
+    setTrustDialog("report");
   }
 
   return (
@@ -1844,17 +1859,15 @@ function ListingModal({
             </section>
             {addressShown && <p className="detail-address">{listing.location}. Contact the seller to confirm the exact meeting or shop address.</p>}
             <p className="description">{listing.description}</p>
-            {!mine && (
-              <div className="buyer-action-row">
-                <button className="call-button" type="button" onClick={() => setContactShown(true)}>
-                  ☎ Show contact
-                </button>
-                <button className="offer-button" type="button" onClick={beginBuyerChat}>
-                  Make an offer
-                </button>
-              </div>
-            )}
-            {contactShown && !mine && (
+            <div className="buyer-action-row">
+              <button className="call-button" type="button" onClick={() => setContactShown(true)}>
+                ☎ Show contact
+              </button>
+              <button className="offer-button" type="button" onClick={beginBuyerChat}>
+                Make an offer
+              </button>
+            </div>
+            {contactShown && (
               <div className="contact-reveal">
                 <a onClick={() => track("call_click")} href={`tel:${listing.phone}`}>Call {listing.phone}</a>
                 <a
@@ -1901,20 +1914,17 @@ function ListingModal({
             {listing.negotiable && <span className="negotiable">Price is negotiable</span>}
             <button type="button" onClick={() => setPriceHistoryShown(value => !value)}>Price History</button>
             {priceHistoryShown && <p>Current listed price is GH₵ {Number(listing.price).toLocaleString("en-GH")}. Admin price changes are recorded in the admin dashboard.</p>}
-            {!mine && <button className="outline-green" type="button" onClick={beginBuyerChat}>Request call back</button>}
+            <button className="outline-green" type="button" onClick={beginBuyerChat}>Request call back</button>
           </section>
 
           <section className="side-card seller-profile-card">
             <b>{listing.seller_name}</b>
             <small>✓ Verified ID · {sameSellerCount} active advert{sameSellerCount === 1 ? "" : "s"}</small>
             <small>{rating ? `${rating.toFixed(1)} ★ from ${sellerReviews.length} feedback` : "No feedback yet"}</small>
-            {!mine && (
-              <>
-                <button className="solid-green" type="button" onClick={() => setContactShown(true)}>Show contact</button>
-                <button className="outline-green" type="button" onClick={beginBuyerChat}>Start chat</button>
-                <button className="outline-green" type="button" onClick={onToggleFollow}>{isFollowing ? "Following seller" : "Follow seller"}</button>
-              </>
-            )}
+            <button className="solid-green" type="button" onClick={() => setContactShown(true)}>Show contact</button>
+            <button className="outline-green" type="button" onClick={beginBuyerChat}>Start chat</button>
+            {!mine && <button className="outline-green" type="button" onClick={onToggleFollow}>{isFollowing ? "Following seller" : "Follow seller"}</button>}
+            {mine && <small className="seller-preview-note">Seller preview: buyers will see these contact and chat buttons.</small>}
           </section>
 
           <section className="side-card feedback-card">
@@ -1923,12 +1933,10 @@ function ListingModal({
             </button>
           </section>
 
-          {!mine && (
-            <section className="side-card report-card">
-              <button type="button" onClick={() => setNotice("If this item is sold or unavailable, contact the seller first. Admin can remove unsafe adverts after review.")}>Mark unavailable</button>
-              <button type="button" onClick={() => { setTrustText(""); setTrustDialog("report"); }}>⚑ Report Abuse</button>
-            </section>
-          )}
+          <section className="side-card report-card">
+            <button type="button" onClick={() => setNotice("If this item is sold or unavailable, contact the seller first. Admin can remove unsafe adverts after review.")}>Mark unavailable</button>
+            <button type="button" onClick={openReportDialog}>⚑ Report Abuse</button>
+          </section>
 
           <section className="side-card safety-tips">
             <h3>Safety tips</h3>

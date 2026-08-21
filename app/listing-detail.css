@@ -379,6 +379,12 @@
   color: #5d7885;
 }
 
+.seller-profile-card .seller-preview-note {
+  color: #7b8c87;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .feedback-card button {
   width: 100%;
   border: 1px solid #ff8b2d;
