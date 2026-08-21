@@ -1445,7 +1445,9 @@ function SellModal({
       package: String(formData.get("package") || "standard"),
     };
 
-    if (freeListingEligible || auth.user.app_metadata?.role === "admin") {
+    const postingAsAdmin = auth.user.app_metadata?.role === "admin";
+
+    if (freeListingEligible || postingAsAdmin) {
       const inserted = await supabase.from("listings").insert({
         seller_id: auth.user.id,
         seller_name: listing.seller_name,
@@ -1461,7 +1463,7 @@ function SellModal({
         whatsapp: listing.whatsapp,
         image_urls: listing.image_urls,
         package: listing.package,
-        status: "pending",
+        status: postingAsAdmin ? "approved" : "pending",
         payment_status: "free",
         payment_reference: null,
         expires_at: new Date(Date.now() + 30 * DAY).toISOString(),
@@ -1474,8 +1476,8 @@ function SellModal({
       }
 
       onCreated(
-        auth.user.app_metadata?.role === "admin"
-          ? "Admin advert posted without payment and is waiting for approval."
+        postingAsAdmin
+          ? "Admin advert posted without payment and is now live in the marketplace."
           : "Your first advert is free and is waiting for admin approval.",
       );
       return;
