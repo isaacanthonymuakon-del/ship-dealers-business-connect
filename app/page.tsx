@@ -810,6 +810,7 @@ export default function Home() {
             userId={memberId}
             memberName={memberName}
             reviews={reviews}
+            listings={listings}
             isFollowing={isFollowingSelectedSeller}
             onReviewsChanged={async () => {
               const refreshed = await supabase.from("seller_reviews").select("*").order("created_at", { ascending: false });
@@ -820,6 +821,11 @@ export default function Home() {
             }}
             onToggleFollow={async () => {
               await toggleFollowSeller(selected);
+            }}
+            onOpenListing={listing => setSelected(listing)}
+            onPostLikeThis={() => {
+              setSelected(null);
+              setSellOpen(true);
             }}
             onClose={() => setSelected(null)}
           />
@@ -1644,10 +1650,13 @@ function ListingModal({
   userId,
   memberName,
   reviews,
+  listings,
   isFollowing,
   onReviewsChanged,
   onOpenChat,
   onToggleFollow,
+  onOpenListing,
+  onPostLikeThis,
   onClose,
 }: {
   listing: Listing;
@@ -1655,10 +1664,13 @@ function ListingModal({
   userId: string;
   memberName: string;
   reviews: Review[];
+  listings: Listing[];
   isFollowing: boolean;
   onReviewsChanged: () => Promise<void>;
   onOpenChat: () => Promise<void>;
   onToggleFollow: () => Promise<void>;
+  onOpenListing: (listing: Listing) => void;
+  onPostLikeThis: () => void;
   onClose: () => void;
 }) {
   const [photo, setPhoto] = useState(0);
@@ -1667,15 +1679,33 @@ function ListingModal({
   const [trustText, setTrustText] = useState("");
   const [score, setScore] = useState(5);
   const [trustBusy, setTrustBusy] = useState(false);
+  const [contactShown, setContactShown] = useState(false);
+  const [addressShown, setAddressShown] = useState(false);
+  const [priceHistoryShown, setPriceHistoryShown] = useState(false);
   const sellerReviews = reviews.filter(review => review.seller_id === listing.seller_id);
   const rating = sellerReviews.length ? sellerReviews.reduce((sum, review) => sum + review.rating, 0) / sellerReviews.length : 0;
   const wa = (listing.whatsapp || listing.phone).replace(/\D/g, "").replace(/^0/, "233");
+  const sameSellerCount = listings.filter(item => item.seller_id === listing.seller_id && item.status === "approved").length;
+  const similarListings = listings
+    .filter(item => item.id !== listing.id && item.status === "approved" && (item.category === listing.category || item.location === listing.location))
+    .slice(0, 3);
+  const createdAt = new Date(listing.created_at);
+  const ageText = Number.isNaN(createdAt.getTime()) ? "Recently posted" : `${createdAt.toLocaleDateString("en-GH")} · ${createdAt.toLocaleTimeString("en-GH", { hour: "2-digit", minute: "2-digit" })}`;
 
   useEffect(() => {
     if (userId) {
       void supabase.from("analytics_events").insert({ user_id: userId, listing_id: listing.id, event_name: "listing_view" });
     }
   }, [listing.id, userId]);
+
+  useEffect(() => {
+    setPhoto(0);
+    setNotice("");
+    setTrustDialog(null);
+    setContactShown(false);
+    setAddressShown(false);
+    setPriceHistoryShown(false);
+  }, [listing.id]);
 
   async function submitTrust() {
     setTrustBusy(true);
@@ -1721,85 +1751,204 @@ function ListingModal({
     }
   }
 
+  async function shareListing(channel?: "facebook" | "whatsapp" | "email") {
+    const text = `Check this advert on Ship Dealers Business Connect: ${listing.title}`;
+    const url = window.location.href;
+    if (channel === "whatsapp") {
+      window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (channel === "email") {
+      window.location.href = `mailto:?subject=${encodeURIComponent(listing.title)}&body=${encodeURIComponent(`${text}\n${url}`)}`;
+      return;
+    }
+    if (channel === "facebook") {
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (navigator.share) {
+      await navigator.share({ title: listing.title, text, url });
+    } else {
+      await navigator.clipboard?.writeText(url);
+      setNotice("Advert link copied.");
+    }
+  }
+
+  function beginBuyerChat() {
+    void onOpenChat();
+  }
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <section className="detail-modal">
+      <section className="detail-modal marketplace-detail">
         <button className="modal-close" onClick={onClose} aria-label="Close" type="button">
           ×
         </button>
-        <div className="detail-gallery">
-          <img src={listing.image_urls[photo]} alt={listing.title} />
-          <div>
-            {listing.image_urls.map((url, index) => (
-              <button className={photo === index ? "active" : ""} key={url} onClick={() => setPhoto(index)} type="button">
-                <img loading="lazy" src={url} alt="" />
-              </button>
-            ))}
+        <div className="detail-main">
+          <div className="detail-gallery">
+            <span className="detail-badge">{listing.package === "business" ? "Enterprise" : listing.package === "featured" ? "Promoted" : listing.category}</span>
+            <img src={listing.image_urls[photo]} alt={listing.title} />
+            <span className="detail-counter">{photo + 1}/{listing.image_urls.length}</span>
+            <button className="gallery-arrow gallery-prev" onClick={() => setPhoto(photo === 0 ? listing.image_urls.length - 1 : photo - 1)} type="button" aria-label="Previous photo">‹</button>
+            <button className="gallery-arrow gallery-next" onClick={() => setPhoto(photo === listing.image_urls.length - 1 ? 0 : photo + 1)} type="button" aria-label="Next photo">›</button>
+            <div>
+              {listing.image_urls.map((url, index) => (
+                <button className={photo === index ? "active" : ""} key={url} onClick={() => setPhoto(index)} type="button">
+                  <img loading="lazy" src={url} alt="" />
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="detail-info">
-          <p className="modal-kicker">
-            {listing.category} · {listing.location}
-          </p>
-          <h2>{listing.title}</h2>
-          <div className="detail-price">GH₵ {Number(listing.price).toLocaleString("en-GH")}</div>
-          {listing.negotiable && <span className="negotiable">Negotiable</span>}
-          <dl>
-            <div>
-              <dt>Brand</dt>
-              <dd>{listing.brand}</dd>
+
+          <article className="detail-content">
+            <div className="detail-title-row">
+              <div>
+                <h2>{listing.title}</h2>
+                <p className="detail-meta">
+                  <span>{listing.package === "featured" ? "Promoted" : "Approved"}</span>
+                  <span>{listing.location}</span>
+                  <span>{ageText}</span>
+                </p>
+              </div>
+              <button className="save-advert-button" type="button" aria-label="Save advert">♡</button>
             </div>
-            <div>
-              <dt>Condition</dt>
-              <dd>{listing.item_condition}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd>{listing.status}</dd>
-            </div>
-          </dl>
-          <h3>Description</h3>
-          <p className="description">{listing.description}</p>
-          <div className="seller-box">
-            <b>✓ {listing.seller_name}</b>
-            <small>
-              Verified member · {rating ? `${rating.toFixed(1)} ★ from ${sellerReviews.length} review${sellerReviews.length === 1 ? "" : "s"}` : "New seller with no ratings yet"}
-            </small>
+            <dl className="detail-spec-grid">
+              <div>
+                <dt>Type</dt>
+                <dd>{listing.category}</dd>
+              </div>
+              <div>
+                <dt>Brand</dt>
+                <dd>{listing.brand || "Not provided"}</dd>
+              </div>
+              <div>
+                <dt>Condition</dt>
+                <dd>{listing.item_condition || "Not provided"}</dd>
+              </div>
+              <div>
+                <dt>Package</dt>
+                <dd>{listing.package}</dd>
+              </div>
+              <div>
+                <dt>Location</dt>
+                <dd>{listing.location}</dd>
+              </div>
+              <div>
+                <dt>Price status</dt>
+                <dd>{listing.negotiable ? "Negotiable" : "Fixed"}</dd>
+              </div>
+            </dl>
+            <section className="store-address-row">
+              <b>🏪 Store address</b>
+              <button type="button" onClick={() => setAddressShown(value => !value)}>{addressShown ? "Hide" : "Show"}</button>
+            </section>
+            {addressShown && <p className="detail-address">{listing.location}. Contact the seller to confirm the exact meeting or shop address.</p>}
+            <p className="description">{listing.description}</p>
             {!mine && (
-              <>
-                <a onClick={() => track("call_click")} className="call-button" href={`tel:${listing.phone}`}>
-                  Call seller · {listing.phone}
-                </a>
+              <div className="buyer-action-row">
+                <button className="call-button" type="button" onClick={() => setContactShown(true)}>
+                  ☎ Show contact
+                </button>
+                <button className="offer-button" type="button" onClick={beginBuyerChat}>
+                  Make an offer
+                </button>
+              </div>
+            )}
+            {contactShown && !mine && (
+              <div className="contact-reveal">
+                <a onClick={() => track("call_click")} href={`tel:${listing.phone}`}>Call {listing.phone}</a>
                 <a
                   onClick={() => track("whatsapp_click")}
-                  className="whatsapp-button"
                   target="_blank"
                   rel="noreferrer"
                   href={`https://wa.me/${wa}?text=${encodeURIComponent(`Hello, I saw your ${listing.title} on Ship Dealers Business Connect. Is it still available?`)}`}
                 >
                   Chat on WhatsApp
                 </a>
-                <button className="follow-button" type="button" onClick={onToggleFollow}>
-                  {isFollowing ? "Following seller" : "Follow seller"}
-                </button>
-                <button className="follow-button follow-button-secondary" type="button" onClick={onOpenChat}>
-                  Message seller
-                </button>
-                <div className="trust-actions">
-                  <button type="button" onClick={() => { setTrustText(""); setTrustDialog("review"); }}>
-                    Rate seller
+              </div>
+            )}
+            <div className="share-row" aria-label="Share advert">
+              <button type="button" onClick={() => shareListing("facebook")}>f</button>
+              <button type="button" onClick={() => shareListing("email")}>✉</button>
+              <button type="button" onClick={() => shareListing()}>↗</button>
+              <button type="button" onClick={() => shareListing("whatsapp")}>☘</button>
+            </div>
+          </article>
+
+          {similarListings.length > 0 && (
+            <section className="similar-adverts">
+              <div className="similar-head">
+                <h3>Similar adverts</h3>
+                <span>▦</span>
+              </div>
+              <div className="similar-grid">
+                {similarListings.map(item => (
+                  <button key={item.id} className="similar-card" type="button" onClick={() => { setPhoto(0); onOpenListing(item); }}>
+                    <img src={item.image_urls[0]} alt="" />
+                    <b>GH₵ {Number(item.price).toLocaleString("en-GH")}</b>
+                    <span>{item.title}</span>
+                    <small>{item.location}</small>
                   </button>
-                  <button type="button" onClick={() => { setTrustText(""); setTrustDialog("report"); }}>
-                    Report advert
-                  </button>
-                </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        <aside className="detail-sidebar">
+          <section className="side-card price-card">
+            <b>GH₵ {Number(listing.price).toLocaleString("en-GH")}</b>
+            {listing.negotiable && <span className="negotiable">Price is negotiable</span>}
+            <button type="button" onClick={() => setPriceHistoryShown(value => !value)}>Price History</button>
+            {priceHistoryShown && <p>Current listed price is GH₵ {Number(listing.price).toLocaleString("en-GH")}. Admin price changes are recorded in the admin dashboard.</p>}
+            {!mine && <button className="outline-green" type="button" onClick={beginBuyerChat}>Request call back</button>}
+          </section>
+
+          <section className="side-card seller-profile-card">
+            <b>{listing.seller_name}</b>
+            <small>✓ Verified ID · {sameSellerCount} active advert{sameSellerCount === 1 ? "" : "s"}</small>
+            <small>{rating ? `${rating.toFixed(1)} ★ from ${sellerReviews.length} feedback` : "No feedback yet"}</small>
+            {!mine && (
+              <>
+                <button className="solid-green" type="button" onClick={() => setContactShown(true)}>Show contact</button>
+                <button className="outline-green" type="button" onClick={beginBuyerChat}>Start chat</button>
+                <button className="outline-green" type="button" onClick={onToggleFollow}>{isFollowing ? "Following seller" : "Follow seller"}</button>
               </>
             )}
-          </div>
+          </section>
+
+          <section className="side-card feedback-card">
+            <button type="button" onClick={() => { setTrustText(""); setTrustDialog("review"); }}>
+              🙂 {sellerReviews.length} Feedback
+            </button>
+          </section>
+
+          {!mine && (
+            <section className="side-card report-card">
+              <button type="button" onClick={() => setNotice("If this item is sold or unavailable, contact the seller first. Admin can remove unsafe adverts after review.")}>Mark unavailable</button>
+              <button type="button" onClick={() => { setTrustText(""); setTrustDialog("report"); }}>⚑ Report Abuse</button>
+            </section>
+          )}
+
+          <section className="side-card safety-tips">
+            <h3>Safety tips</h3>
+            <ul>
+              <li>Avoid paying in advance, even for delivery.</li>
+              <li>Meet the seller at a safe public place.</li>
+              <li>Inspect the item and ensure it is exactly what you want.</li>
+              <li>Only pay if you are satisfied.</li>
+              <li>Never share your password, PIN or verification code.</li>
+            </ul>
+          </section>
+
+          <section className="side-card">
+            <button className="outline-green" type="button" onClick={onPostLikeThis}>Post Ad Like This</button>
+          </section>
+
           {notice && <p className="pending-note">{notice}</p>}
           {listing.status === "pending" && <p className="pending-note">This advert is awaiting owner review.</p>}
           {listing.status === "rejected" && <p className="rejected-note">Changes required: {listing.rejection_reason || "Please review the advert details."}</p>}
-        </div>
+        </aside>
       </section>
       {trustDialog && (
         <div className="trust-dialog-backdrop">

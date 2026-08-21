@@ -4,6 +4,7 @@ import "./globals.css";
 import "./brand.css";
 import "./auth.css";
 import "./marketplace.css";
+import "./listing-detail.css";
 import "./payment.css";
 import "./mobile.css";
 
