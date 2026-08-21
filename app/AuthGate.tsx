@@ -5,13 +5,11 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase-client";
 
 type Mode = "signin" | "signup";
-type SignInMethod = "email" | "phone";
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<Mode>("signin");
-  const [signInMethod, setSignInMethod] = useState<SignInMethod>("email");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [recovery, setRecovery] = useState(false);
@@ -34,15 +32,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }, []);
 
   const helperText = useMemo(() => {
-    if (signInMethod === "phone") {
-      return mode === "signin"
-        ? "Use your registered phone number and password."
-        : "Use your name, registered phone number and password to create your account.";
-    }
     return mode === "signin"
       ? "Sign in with your email address and password."
       : "Use your name, email address and password to create your account.";
-  }, [mode, signInMethod]);
+  }, [mode]);
 
   async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,7 +43,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     const password = String(form.get("password") || "");
     const displayName = String(form.get("name") || "").trim();
     const email = String(form.get("email") || "").trim();
-    const phone = normalizePhoneNumber(String(form.get("phone") || ""));
     const confirmation = String(form.get("confirmPassword") || "");
 
     setBusy(true);
@@ -63,39 +55,23 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (signInMethod === "phone") {
-        setMessage("Phone account creation is temporarily paused while SMS verification is being connected. Please create your account with email for now.");
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: displayName },
-            emailRedirectTo: window.location.origin,
-          },
-        });
-
-        if (error) setMessage(error.message);
-        else if (!data.session) {
-          setMessage(
-            "Account created. Check your email and click the verification link, then sign in.",
-          );
-        } else {
-          setSession(data.session);
-        }
-      }
-    } else if (signInMethod === "phone") {
-      if (!phone) {
-        setMessage("Enter your phone number first.");
-        setBusy(false);
-        return;
-      }
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: phoneToPrivateEmail(phone),
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
+        options: {
+          data: { full_name: displayName },
+          emailRedirectTo: window.location.origin,
+        },
       });
-      if (error) setMessage(formatAuthError(error.message));
-      else setSession(data.session);
+
+      if (error) setMessage(error.message);
+      else if (!data.session) {
+        setMessage(
+          "Account created. Check your email and click the verification link, then sign in.",
+        );
+      } else {
+        setSession(data.session);
+      }
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setMessage(formatAuthError(error.message));
@@ -106,11 +82,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }
 
   async function sendReset() {
-    if (signInMethod === "phone") {
-      setMessage("Phone sign in does not use email reset. Use your registered number and password, or contact support.");
-      return;
-    }
-
     const emailInput = document.querySelector<HTMLInputElement>('input[name="email"]');
     const email = emailInput?.value.trim();
     if (!email) {
@@ -192,29 +163,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         title={mode === "signin" ? "Welcome back" : "Create your account"}
         subtitle="Verified members can access Ghana’s trusted buy and sell marketplace."
       >
-        <div className="auth-methods" aria-label="Sign in method">
-          <button
-            type="button"
-            className={signInMethod === "email" ? "active" : ""}
-            onClick={() => {
-              setSignInMethod("email");
-              setMessage("");
-            }}
-          >
-            Email
-          </button>
-          <button
-            type="button"
-            className={signInMethod === "phone" ? "active" : ""}
-            onClick={() => {
-              setSignInMethod("phone");
-              setMessage("");
-            }}
-          >
-            Phone
-          </button>
-        </div>
-
         <div className="auth-tabs" role="tablist">
           <button
             type="button"
@@ -231,7 +179,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             className={mode === "signup" ? "active" : ""}
             onClick={() => {
               setMode("signup");
-              if (signInMethod === "phone") setSignInMethod("email");
               setMessage("");
             }}
           >
@@ -252,36 +199,16 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             </label>
           )}
 
-          {signInMethod === "email" ? (
-            <label>
-              Email address
-              <input
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="you@email.com"
-              />
-            </label>
-          ) : mode === "signin" ? (
-            <label>
-              Phone number
-              <input
-                name="phone"
-                type="tel"
-                inputMode="tel"
-                required
-                autoComplete="tel"
-                placeholder="+233 24 000 0000"
-              />
-            </label>
-          ) : null}
-
-          {mode === "signup" && signInMethod === "phone" && (
-            <p className="auth-message" role="status">
-              Phone account creation is temporarily paused while SMS verification is being connected. Please use email to create your account today.
-            </p>
-          )}
+          <label>
+            Email address
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@email.com"
+            />
+          </label>
 
           <PasswordField
             name="password"
@@ -317,7 +244,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
                 : "Create account"}
           </button>
 
-          {mode === "signin" && signInMethod === "email" && (
+          {mode === "signin" && (
             <button
               className="auth-link"
               type="button"
@@ -330,11 +257,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         </form>
 
         <p className="auth-helper">{helperText}</p>
-        <p className="auth-footnote">
-          {signInMethod === "email"
-            ? "Email verification is required before marketplace access."
-            : "Phone sign in is for already-created phone accounts. New users should create an account with email until SMS verification is connected."}
-        </p>
+        <p className="auth-footnote">Email verification is required before marketplace access.</p>
       </AuthShell>
     );
   }
@@ -449,20 +372,4 @@ function formatAuthError(message: string) {
     return "Too many account attempts right now. If you already created this phone account, tap Sign in and use the same phone number and password.";
   }
   return message;
-}
-
-function normalizePhoneNumber(value: string) {
-  const trimmed = value.trim().replace(/[^\d+]/g, "");
-  if (!trimmed) return "";
-  if (trimmed.startsWith("+")) return trimmed;
-  const digits = trimmed.replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("233")) return `+${digits}`;
-  if (digits.startsWith("0")) return `+233${digits.slice(1)}`;
-  return `+${digits}`;
-}
-
-function phoneToPrivateEmail(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  return `phone-${digits}@shipdealersconnect.local`;
 }

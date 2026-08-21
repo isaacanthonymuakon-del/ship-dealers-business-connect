@@ -156,6 +156,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [memberId, setMemberId] = useState("");
   const [memberName, setMemberName] = useState("Member");
+  const [memberIsAdmin, setMemberIsAdmin] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState("");
   const [supportSubject, setSupportSubject] = useState("");
   const [supportMessage, setSupportMessage] = useState("");
@@ -215,10 +216,12 @@ export default function Home() {
       const user = data.user;
       const uid = user?.id || "";
       const displayName = String(user?.user_metadata?.full_name || user?.phone || user?.email || "Member");
+      const isAdmin = user?.app_metadata?.role === "admin";
       if (cancelled) return;
 
       setMemberId(uid);
       setMemberName(displayName);
+      setMemberIsAdmin(isAdmin);
 
       await loadPrimaryData();
       if (uid) {
@@ -788,6 +791,7 @@ export default function Home() {
 
         {sellOpen && (
           <SellModal
+            isAdmin={memberIsAdmin}
             onClose={() => setSellOpen(false)}
             onCreated={message => {
               setSellOpen(false);
@@ -1329,9 +1333,11 @@ async function optimizeProductImage(file: File) {
 }
 
 function SellModal({
+  isAdmin,
   onClose,
   onCreated,
 }: {
+  isAdmin: boolean;
   onClose: () => void;
   onCreated: (message?: string) => void;
 }) {
@@ -1346,6 +1352,14 @@ function SellModal({
     let cancelled = false;
 
     async function checkEligibility() {
+      if (isAdmin) {
+        if (!cancelled) {
+          setFreeListingEligible(true);
+          setChecking(false);
+        }
+        return;
+      }
+
       const { data } = await supabase.auth.getUser();
       const userId = data.user?.id;
       if (!userId) {
@@ -1369,7 +1383,7 @@ function SellModal({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAdmin]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1431,7 +1445,7 @@ function SellModal({
       package: String(formData.get("package") || "standard"),
     };
 
-    if (freeListingEligible) {
+    if (freeListingEligible || auth.user.app_metadata?.role === "admin") {
       const inserted = await supabase.from("listings").insert({
         seller_id: auth.user.id,
         seller_name: listing.seller_name,
@@ -1459,7 +1473,11 @@ function SellModal({
         return;
       }
 
-      onCreated("Your first advert is free and is waiting for admin approval.");
+      onCreated(
+        auth.user.app_metadata?.role === "admin"
+          ? "Admin advert posted without payment and is waiting for approval."
+          : "Your first advert is free and is waiting for admin approval.",
+      );
       return;
     }
 
@@ -1499,7 +1517,9 @@ function SellModal({
         <h2>What are you selling?</h2>
         <p>
           {checking
-            ? "Checking whether your first advert is eligible for a free admin-reviewed posting…"
+            ? "Checking posting options…"
+            : isAdmin
+              ? "Admin posting is free. Submit the advert and it will enter review before it appears on the marketplace."
             : freeListingEligible
               ? "Your first advert is free. Submit it and the admin will review it before it appears on the marketplace."
               : "Choose a package, pay securely, then your advert will enter review."}
@@ -1605,7 +1625,7 @@ function SellModal({
                 ? uploadedCount < files.length
                   ? `Uploading photos ${uploadedCount} of ${files.length}…`
                   : "Opening secure payment…"
-                : freeListingEligible
+                : freeListingEligible || isAdmin
                   ? "Submit for free review"
                   : "Continue to secure payment"}
             </button>
