@@ -1686,11 +1686,9 @@ function ListingModal({
   const rating = sellerReviews.length ? sellerReviews.reduce((sum, review) => sum + review.rating, 0) / sellerReviews.length : 0;
   const wa = (listing.whatsapp || listing.phone).replace(/\D/g, "").replace(/^0/, "233");
   const sameSellerCount = listings.filter(item => item.seller_id === listing.seller_id && item.status === "approved").length;
-  const matchedSimilarListings = listings.filter(
-    item => item.id !== listing.id && item.status === "approved" && (item.category === listing.category || item.location === listing.location),
-  );
-  const fallbackSimilarListings = listings.filter(item => item.id !== listing.id && item.status === "approved");
-  const similarListings = (matchedSimilarListings.length ? matchedSimilarListings : fallbackSimilarListings).slice(0, 3);
+  const similarListings = listings
+    .filter(item => item.id !== listing.id && item.status === "approved" && item.category === listing.category)
+    .slice(0, 3);
   const createdAt = new Date(listing.created_at);
   const ageText = Number.isNaN(createdAt.getTime()) ? "Recently posted" : `${createdAt.toLocaleDateString("en-GH")} · ${createdAt.toLocaleTimeString("en-GH", { hour: "2-digit", minute: "2-digit" })}`;
 
