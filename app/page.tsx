@@ -126,6 +126,37 @@ const categories = [
   "Other",
 ];
 
+const ghanaRegionOptions = [
+  { value: "Ahafo Region", label: "Ahafo Region — Goaso", aliases: ["Ahafo", "Goaso"] },
+  { value: "Ashanti Region", label: "Ashanti Region — Kumasi", aliases: ["Ashanti", "Kumasi"] },
+  { value: "Bono Region", label: "Bono Region — Sunyani", aliases: ["Bono", "Sunyani"] },
+  { value: "Bono East Region", label: "Bono East Region — Techiman", aliases: ["Bono East", "Techiman"] },
+  { value: "Central Region", label: "Central Region — Cape Coast", aliases: ["Central", "Cape Coast"] },
+  { value: "Eastern Region", label: "Eastern Region — Koforidua", aliases: ["Eastern", "Koforidua"] },
+  { value: "Greater Accra Region", label: "Greater Accra Region — Accra", aliases: ["Greater Accra", "Accra"] },
+  { value: "North East Region", label: "North East Region — Nalerigu", aliases: ["North East", "Nalerigu"] },
+  { value: "Northern Region", label: "Northern Region — Tamale", aliases: ["Northern", "Tamale"] },
+  { value: "Oti Region", label: "Oti Region — Dambai", aliases: ["Oti", "Dambai"] },
+  { value: "Savannah Region", label: "Savannah Region — Damongo", aliases: ["Savannah", "Damongo"] },
+  { value: "Upper East Region", label: "Upper East Region — Bolgatanga", aliases: ["Upper East", "Bolgatanga"] },
+  { value: "Upper West Region", label: "Upper West Region — Wa", aliases: ["Upper West", "Wa"] },
+  { value: "Volta Region", label: "Volta Region — Ho", aliases: ["Volta", "Ho"] },
+  { value: "Western Region", label: "Western Region — Sekondi-Takoradi", aliases: ["Western", "Sekondi-Takoradi", "Sekondi", "Takoradi"] },
+  { value: "Western North Region", label: "Western North Region — Sefwi Wiawso", aliases: ["Western North", "Sefwi Wiawso"] },
+];
+
+function normalizeLocation(value: string) {
+  return value.toLowerCase().replace(/\s+region\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function listingMatchesLocation(listingLocation: string, selectedLocation: string) {
+  if (selectedLocation === "All Ghana") return true;
+  const selected = ghanaRegionOptions.find(item => item.value === selectedLocation);
+  if (!selected) return normalizeLocation(listingLocation) === normalizeLocation(selectedLocation);
+  const listingText = normalizeLocation(listingLocation);
+  return [selected.value, ...selected.aliases].some(alias => listingText.includes(normalizeLocation(alias)));
+}
+
 const PAGE_SIZE = 12;
 const DAY = 24 * 60 * 60 * 1000;
 const SUPPORT_TIMEOUT_MS = 12000;
@@ -271,7 +302,7 @@ export default function Home() {
         return (
           haystack.includes(query.toLowerCase()) &&
           (category === "All" || item.category === category) &&
-          (location === "All Ghana" || item.location === location) &&
+          listingMatchesLocation(item.location, location) &&
           (condition === "All conditions" || item.item_condition === condition) &&
           (!maxPrice || Number(item.price) <= Number(maxPrice))
         );
@@ -281,10 +312,7 @@ export default function Home() {
 
   const pageCount = Math.max(1, Math.ceil(visibleListings.length / PAGE_SIZE));
   const pagedListings = visibleListings.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const locations = useMemo(
-    () => ["All Ghana", ...Array.from(new Set(listings.map(item => item.location)))],
-    [listings],
-  );
+  const locations = useMemo(() => [{ value: "All Ghana", label: "All Ghana" }, ...ghanaRegionOptions], []);
 
   const myListings = useMemo(() => listings.filter(item => item.seller_id === memberId), [listings, memberId]);
   const myListingIds = useMemo(() => new Set(myListings.map(item => item.id)), [myListings]);
@@ -581,7 +609,7 @@ export default function Home() {
                 onChange={event => setQuery(event.target.value)}
               />
               <select aria-label="Location" value={location} onChange={event => setLocation(event.target.value)}>
-                {locations.map(item => <option key={item}>{item}</option>)}
+                {locations.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
               </select>
             </div>
             <div className="quick-filters">
