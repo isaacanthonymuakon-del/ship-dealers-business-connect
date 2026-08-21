@@ -64,7 +64,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         },
       });
 
-      if (error) setMessage(error.message);
+      if (error) setMessage(formatAuthError(error.message));
       else if (!data.session) {
         setMessage(
           "Account created. Check your email and click the verification link, then sign in.",
@@ -93,7 +93,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin,
     });
-    setMessage(error ? error.message : "Password reset email sent. Check your inbox.");
+    setMessage(error ? formatAuthError(error.message) : "Password reset email sent. Check your inbox.");
     setBusy(false);
   }
 
@@ -369,7 +369,7 @@ function formatAuthError(message: string) {
     return "This account already exists. Sign in instead.";
   }
   if (message.toLowerCase().includes("rate limit")) {
-    return "Too many account attempts right now. If you already created this phone account, tap Sign in and use the same phone number and password.";
+    return "Too many email attempts right now. Please wait about 1 hour, then try again. If you already created an account, check your email or spam folder for the verification link.";
   }
   return message;
 }
