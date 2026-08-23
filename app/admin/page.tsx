@@ -8,11 +8,12 @@ import "./dialogs.css";
 import "./price-tools.css";
 
 type Listing = { id:string; seller_id:string; seller_name:string; title:string; category:string; brand:string|null; item_condition:string|null; price:number; negotiable:boolean; description:string|null; location:string; phone:string; whatsapp:string|null; image_urls:string[]; status:string; package:string|null; payment_status:string|null; payment_reference:string|null; paid_at:string|null; expires_at:string|null; created_at:string };
-type Payment = { id:string; reference:string; package:string; amount:number; status:string; created_at:string };
+type Payment = { id:string; reference:string; package:string; payment_type?:string; amount:number; status:string; created_at:string };
 type Report = { id:string; listing_id:string; reason:string; status:string; created_at:string };
 type AnalyticsEvent = { id:number; event_name:string; created_at:string };
 type SupportRequest = { id:string; user_id:string; subject:string; message:string; status:string; admin_reply:string|null; replied_at:string|null; replied_by:string|null; replied_by_name:string|null; created_at:string };
 type PriceAdjustment = { id:string; listing_id:string; admin_id:string | null; admin_name:string; old_price:number; new_price:number; reason:string | null; created_at:string };
+type BannerAd = { id:string; user_id:string; user_name:string; business_name:string; title:string; message:string; target_url:string|null; placement:string; package:string; amount:number; payment_status:string; payment_reference:string|null; status:string; rejection_reason:string|null; starts_at:string|null; expires_at:string|null; created_at:string };
 type AdminState = "loading" | "signed_out" | "denied" | "ready";
 
 export default function AdminPortal() {
@@ -24,6 +25,7 @@ export default function AdminPortal() {
   const [events,setEvents] = useState<AnalyticsEvent[]>([]);
   const [support,setSupport] = useState<SupportRequest[]>([]);
   const [adjustments,setAdjustments] = useState<PriceAdjustment[]>([]);
+  const [banners,setBanners] = useState<BannerAd[]>([]);
   const [filter,setFilter] = useState("pending");
   const [busy,setBusy] = useState(false);
   const [message,setMessage] = useState("");
@@ -47,15 +49,16 @@ export default function AdminPortal() {
       supabase.from("analytics_events").select("id,event_name,created_at").order("created_at",{ascending:false}).limit(500),
       supabase.from("support_requests").select("*").order("created_at",{ascending:false}),
       supabase.from("listing_price_adjustments").select("*").order("created_at",{ascending:false}),
+      supabase.from("banner_ads").select("*").order("created_at",{ascending:false}),
     ]);
-    let [adverts,transactions,reported,activity,requests,priceChanges] = await fetchDashboard();
-    const firstError = adverts.error || transactions.error || reported.error || activity.error || requests.error || priceChanges.error;
+    let [adverts,transactions,reported,activity,requests,priceChanges,bannerRequests] = await fetchDashboard();
+    const firstError = adverts.error || transactions.error || reported.error || activity.error || requests.error || priceChanges.error || bannerRequests.error;
     if (firstError?.message.toLowerCase().includes("jwt issued at future")) {
       await new Promise(resolve => setTimeout(resolve,4000));
       await supabase.auth.refreshSession();
-      [adverts,transactions,reported,activity,requests,priceChanges] = await fetchDashboard();
+      [adverts,transactions,reported,activity,requests,priceChanges,bannerRequests] = await fetchDashboard();
     }
-    const finalError = adverts.error || transactions.error || reported.error || activity.error || requests.error || priceChanges.error;
+    const finalError = adverts.error || transactions.error || reported.error || activity.error || requests.error || priceChanges.error || bannerRequests.error;
     if (finalError) {
       setMessage(finalError.message.toLowerCase().includes("jwt issued at future") ? "Your saved data is safe, but the secure session could not be verified. Set Windows date and time to automatic, then sign in again." : `Saved data could not be loaded: ${finalError.message}`);
       return;
@@ -66,6 +69,7 @@ export default function AdminPortal() {
     setEvents((activity.data || []) as AnalyticsEvent[]);
     setSupport((requests.data || []) as SupportRequest[]);
     setAdjustments((priceChanges.data || []) as PriceAdjustment[]);
+    setBanners((bannerRequests.data || []) as BannerAd[]);
     setDataReady(true);
     setMessage("");
   },[]);
@@ -160,6 +164,37 @@ export default function AdminPortal() {
     setBusy(false);
   }
 
+  async function moderateBanner(item:BannerAd,status:"approved"|"rejected",reason:string|null=null){
+    if(status==="rejected" && !reason?.trim()){setMessage("Enter a reason before rejecting the banner advert.");return;}
+    const now = new Date();
+    const expires = new Date(now.getTime()+7*86400000).toISOString();
+    setBusy(true);setMessage("");
+    const update = status==="approved"
+      ? {status,rejection_reason:null,starts_at:now.toISOString(),expires_at:expires,updated_at:now.toISOString()}
+      : {status,rejection_reason:reason,updated_at:now.toISOString()};
+    const {error}=await supabase.from("banner_ads").update(update).eq("id",item.id);
+    if(!error){
+      await supabase.from("notifications").upsert({
+        user_id:item.user_id,
+        type:status==="approved"?"banner_approved":"banner_rejected",
+        title:status==="approved"?"Banner advert approved":"Banner advert needs changes",
+        message:status==="approved"?`${item.title} is now live in the public banner slot.`:`${item.title} was not approved. ${reason||"Review the banner details."}`,
+        source_key:`banner-${item.id}-${status}-${Date.now()}`,
+      },{onConflict:"user_id,source_key"});
+    }
+    setMessage(error?error.message:status==="approved"?"Banner approved and published.":"Banner rejected and advertiser notified.");
+    if(!error)await loadDashboard();
+    setBusy(false);
+  }
+
+  async function deleteBanner(item:BannerAd){
+    setBusy(true);setMessage("");
+    const {error}=await supabase.from("banner_ads").delete().eq("id",item.id);
+    setMessage(error?error.message:"Banner advert request deleted.");
+    if(!error)await loadDashboard();
+    setBusy(false);
+  }
+
   const visible = useMemo(() => filter === "all" ? listings : listings.filter(item => item.status === filter),[filter,listings]);
   const successful = payments.filter(payment => payment.status === "success");
   const revenue = successful.reduce((total,payment) => total + Number(payment.amount),0);
@@ -172,12 +207,13 @@ export default function AdminPortal() {
     <header className="admin-header"><a href="/"><span>◎</span><b>Ship Dealers</b><small>Administration</small></a><div><span>Secure owner portal</span><button onClick={signOut}>Sign out</button></div></header>
     <section className="admin-title"><div><p>ADMIN CONTROL CENTRE</p><h1>Marketplace overview</h1></div><a href="/">View customer website</a></section>
     {message && <div className="admin-notice" role="status">{message}</div>}
-    <section className="admin-stats"><article><small>Pending approval</small><b>{dataReady?listings.filter(item => item.status === "pending").length:"—"}</b></article><article><small>Active adverts</small><b>{dataReady?listings.filter(item => item.status === "approved").length:"—"}</b></article><article><small>Open reports</small><b>{dataReady?reports.filter(item=>item.status==="open").length:"—"}</b></article><article><small>Product views</small><b>{dataReady?events.filter(item=>item.event_name==="listing_view").length:"—"}</b></article><article><small>Successful payments</small><b>{dataReady?successful.length:"—"}</b></article><article><small>Revenue</small><b>{dataReady?`GH₵ ${revenue.toLocaleString("en-GH")}`:"—"}</b></article></section>
+    <section className="admin-stats"><article><small>Pending approval</small><b>{dataReady?listings.filter(item => item.status === "pending").length:"—"}</b></article><article><small>Active adverts</small><b>{dataReady?listings.filter(item => item.status === "approved").length:"—"}</b></article><article><small>Pending banners</small><b>{dataReady?banners.filter(item=>item.status==="pending").length:"—"}</b></article><article><small>Product views</small><b>{dataReady?events.filter(item=>item.event_name==="listing_view").length:"—"}</b></article><article><small>Successful payments</small><b>{dataReady?successful.length:"—"}</b></article><article><small>Revenue</small><b>{dataReady?`GH₵ ${revenue.toLocaleString("en-GH")}`:"—"}</b></article></section>
     <section className="admin-workspace">
       <div className="admin-section-head"><div><p>LISTING MODERATION</p><h2>Adverts</h2></div><nav>{["pending","approved","rejected","all"].map(item => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}</nav></div>
       {visible.length === 0 ? <div className="admin-empty">No {filter === "all" ? "" : filter} adverts found.</div> : <div className="admin-listings">{visible.map(item => <article key={item.id} className="admin-listing-card" onClick={() => setReviewTarget(item)}><img src={item.image_urls[0]} alt=""/><div><small>{item.category} · {item.location}</small><h3>{item.title}</h3><p>{item.seller_name} · {item.phone}</p><b>GH₵ {Number(item.price).toLocaleString("en-GH")}</b><span className={`admin-status ${item.status}`}>{item.status}</span><button className="review-link" onClick={() => setReviewTarget(item)}>View full advert</button></div><aside onClick={event => event.stopPropagation()}>{item.status === "pending" && <><button className="approve" disabled={busy} onClick={() => moderate(item.id,"approved")}>Approve</button><button disabled={busy} onClick={() => {setRejectTarget(item);setRejectReason("");}}>Reject</button></>}<button className="delete" disabled={busy} onClick={() => setDeleteTarget(item)}>Delete</button></aside></article>)}</div>}
     </section>
     <section className="admin-workspace"><div className="admin-section-head"><div><p>FINANCE</p><h2>Recent payments</h2></div></div>{payments.length === 0 ? <div className="admin-empty">No payments recorded.</div> : <div className="admin-table"><div className="admin-row header"><span>Reference</span><span>Package</span><span>Amount</span><span>Status</span><span>Date</span></div>{payments.slice(0,20).map(payment => <div className="admin-row" key={payment.id}><span>{payment.reference}</span><span>{payment.package}</span><span>GH₵ {Number(payment.amount).toLocaleString("en-GH")}</span><span>{payment.status}</span><span>{new Date(payment.created_at).toLocaleDateString("en-GH")}</span></div>)}</div>}</section>
+    <section className="admin-workspace"><div className="admin-section-head"><div><p>PUBLIC ADVERTISING</p><h2>Banner advert requests</h2></div></div>{banners.length===0?<div className="admin-empty">No banner advert requests yet.</div>:<div className="admin-report-list">{banners.slice(0,20).map(item=><article key={item.id}><b>{item.title}</b><p>{item.business_name} · {item.message}</p><small>{item.placement} · GH₵ {Number(item.amount).toLocaleString("en-GH")} · {item.payment_status} · {item.status}</small>{item.target_url&&<p><a href={item.target_url} target="_blank" rel="noreferrer">{item.target_url}</a></p>}{item.rejection_reason&&<p className="admin-support-reply">{item.rejection_reason}</p>}<div>{item.status==="pending"&&item.payment_status==="paid"&&<><button className="approve" disabled={busy} onClick={()=>moderateBanner(item,"approved")}>Approve banner</button><button disabled={busy} onClick={()=>{const reason=window.prompt("Reason for rejecting this banner advert?");if(reason)void moderateBanner(item,"rejected",reason);}}>Reject banner</button></>}<button className="delete" disabled={busy} onClick={()=>deleteBanner(item)}>Delete</button></div></article>)}</div>}</section>
     <section className="admin-workspace"><div className="admin-section-head"><div><p>PRICE CONTROL</p><h2>Recent price changes</h2></div></div>{adjustments.length === 0 ? <div className="admin-empty">No manual price changes yet.</div> : <div className="admin-table"><div className="admin-row header"><span>Advert</span><span>Old price</span><span>New price</span><span>By</span><span>Date</span></div>{adjustments.slice(0,20).map(change => <div className="admin-row" key={change.id}><span>{listings.find(item => item.id === change.listing_id)?.title || "Deleted advert"}</span><span>GH₵ {Number(change.old_price).toLocaleString("en-GH")}</span><span>GH₵ {Number(change.new_price).toLocaleString("en-GH")}</span><span>{change.admin_name}</span><span>{new Date(change.created_at).toLocaleDateString("en-GH")}</span></div>)}</div>}</section>
     <section className="admin-workspace"><div className="admin-section-head"><div><p>TRUST AND SAFETY</p><h2>Recent reports</h2></div></div>{reports.length===0?<div className="admin-empty">No adverts have been reported.</div>:<div className="admin-report-list">{reports.slice(0,20).map(report=><article key={report.id}><b>{listings.find(item=>item.id===report.listing_id)?.title||"Deleted advert"}</b><p>{report.reason}</p><small>{new Date(report.created_at).toLocaleDateString("en-GH")} · {report.status}</small>{report.status==="open"&&<div><button disabled={busy} onClick={()=>resolveReport(report.id,"reviewed")}>Mark reviewed</button><button disabled={busy} onClick={()=>resolveReport(report.id,"dismissed")}>Dismiss</button></div>}</article>)}</div>}</section>
     <section className="admin-workspace"><div className="admin-section-head"><div><p>CUSTOMER CARE</p><h2>Support requests</h2></div></div>{support.length===0?<div className="admin-empty">No support requests.</div>:<div className="admin-report-list">{support.slice(0,20).map(item=><article key={item.id}><b>{item.subject}</b><p>{item.message}</p><small>{new Date(item.created_at).toLocaleDateString("en-GH")} · {item.status}</small>{item.admin_reply&&<div className="admin-support-reply"><strong>Admin reply</strong><p>{item.admin_reply}</p><small>{item.replied_by_name||"Admin"}{item.replied_at?` · ${new Date(item.replied_at).toLocaleDateString("en-GH")}`:""}</small></div>}{item.status!=="closed"&&<label className="admin-support-box">Reply to customer<textarea rows={4} maxLength={1000} value={supportReplies[item.id]??item.admin_reply??""} onChange={event=>setSupportReplies(previous=>({...previous,[item.id]:event.target.value}))} placeholder="Type the response customers will see in their support history."/></label>}<div>{item.status!=="closed"&&<><button disabled={busy} onClick={()=>replySupport(item)}>Send reply</button><button disabled={busy} onClick={()=>closeSupport(item.id)}>Mark resolved</button></>}{item.status==="closed"&&<button className="delete" disabled={busy} onClick={()=>deleteSupport(item)}>Delete resolved</button>}</div></article>)}</div>}</section>

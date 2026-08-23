@@ -34,6 +34,7 @@ type Payment = {
   id: string;
   reference: string;
   package: string;
+  payment_type?: string;
   amount: number;
   status: string;
   channel: string | null;
@@ -109,6 +110,26 @@ type AnalyticsEvent = {
   created_at: string;
 };
 
+type BannerAd = {
+  id: string;
+  user_id: string;
+  user_name: string;
+  business_name: string;
+  title: string;
+  message: string;
+  target_url: string | null;
+  placement: "marketplace" | "category" | "homepage";
+  package: "banner_marketplace_week" | "banner_category_week" | "banner_homepage_week";
+  amount: number;
+  payment_status: "unpaid" | "paid" | "failed" | "refunded";
+  payment_reference: string | null;
+  status: "awaiting_payment" | "pending" | "approved" | "rejected" | "expired";
+  rejection_reason: string | null;
+  starts_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+};
+
 type DashboardTab = "marketplace" | "mine" | "profile" | "messages" | "support";
 
 const categories = [
@@ -161,6 +182,51 @@ const PAGE_SIZE = 12;
 const DAY = 24 * 60 * 60 * 1000;
 const SUPPORT_TIMEOUT_MS = 12000;
 
+const boostPackages = [
+  {
+    key: "boost_featured",
+    name: "Featured advert",
+    price: 10,
+    benefit: "Promoted badge and stronger placement for one approved advert.",
+  },
+  {
+    key: "boost_top_category",
+    name: "Top category spot",
+    price: 25,
+    benefit: "Priority inside the advert category so buyers see it faster.",
+  },
+  {
+    key: "boost_verified_seller",
+    name: "Verified seller package",
+    price: 80,
+    benefit: "Business seller trust upgrade and stronger buyer confidence.",
+  },
+] as const;
+
+const bannerPackages = [
+  {
+    key: "banner_marketplace_week",
+    name: "Marketplace banner",
+    price: 30,
+    placement: "marketplace",
+    benefit: "Shows in the public marketplace banner slot for 7 days after approval.",
+  },
+  {
+    key: "banner_category_week",
+    name: "Category banner",
+    price: 50,
+    placement: "category",
+    benefit: "Best for sellers who want focused visibility in a product category.",
+  },
+  {
+    key: "banner_homepage_week",
+    name: "Homepage banner",
+    price: 100,
+    placement: "homepage",
+    benefit: "Highest visibility banner package for 7 days after approval.",
+  },
+] as const;
+
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -171,6 +237,7 @@ export default function Home() {
   const [messagesByThread, setMessagesByThread] = useState<Record<string, ChatMessage[]>>({});
   const [supportTickets, setSupportTickets] = useState<SupportRequest[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsEvent[]>([]);
+  const [banners, setBanners] = useState<BannerAd[]>([]);
   const [tab, setTab] = useState<DashboardTab>("marketplace");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
@@ -193,14 +260,21 @@ export default function Home() {
   const [supportMessage, setSupportMessage] = useState("");
   const [supportBusy, setSupportBusy] = useState(false);
   const [supportNotice, setSupportNotice] = useState("");
+  const [boostTarget, setBoostTarget] = useState<Listing | null>(null);
+  const [boostBusy, setBoostBusy] = useState("");
+  const [boostError, setBoostError] = useState("");
+  const [bannerOpen, setBannerOpen] = useState(false);
+  const [bannerBusy, setBannerBusy] = useState(false);
+  const [bannerError, setBannerError] = useState("");
 
   const loadPrimaryData = useCallback(async () => {
-    const [listingsRes, reviewsRes, notificationsRes, supportRes, analyticsRes] = await Promise.all([
+    const [listingsRes, reviewsRes, notificationsRes, supportRes, analyticsRes, bannersRes] = await Promise.all([
       supabase.from("listings").select("*").order("created_at", { ascending: false }),
       supabase.from("seller_reviews").select("*").order("created_at", { ascending: false }),
       supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(30),
       supabase.from("support_requests").select("*").order("created_at", { ascending: false }),
       supabase.from("analytics_events").select("*").order("created_at", { ascending: false }).limit(500),
+      supabase.from("banner_ads").select("*").order("created_at", { ascending: false }),
     ]);
 
     if (!listingsRes.error) setListings((listingsRes.data || []) as Listing[]);
@@ -208,6 +282,7 @@ export default function Home() {
     if (!notificationsRes.error) setNotifications((notificationsRes.data || []) as Notification[]);
     if (!supportRes.error) setSupportTickets((supportRes.data || []) as SupportRequest[]);
     if (!analyticsRes.error) setAnalytics((analyticsRes.data || []) as AnalyticsEvent[]);
+    if (!bannersRes.error) setBanners((bannersRes.data || []) as BannerAd[]);
   }, []);
 
   const loadMemberData = useCallback(async (uid: string, preferredThreadId?: string) => {
@@ -266,7 +341,7 @@ export default function Home() {
         setPaymentNotice(
           verified.error || !verified.data?.success
             ? "Payment could not be verified. Check My adverts or try again."
-            : "Payment confirmed. Your advert is now waiting for approval.",
+            : verified.data?.message || "Payment confirmed successfully.",
         );
         window.history.replaceState({}, "", window.location.pathname);
         await loadPrimaryData();
@@ -330,6 +405,16 @@ export default function Home() {
   const activeThread = threads.find(thread => thread.id === activeThreadId) || null;
   const currentThreadMessages = activeThreadId ? messagesByThread[activeThreadId] || [] : [];
   const isFollowingSelectedSeller = selected ? following.some(follow => follow.seller_id === selected.seller_id) : false;
+  const activeBanner = useMemo(
+    () =>
+      banners.find(
+        banner =>
+          banner.status === "approved" &&
+          (banner.placement === "marketplace" || banner.placement === "homepage") &&
+          (!banner.expires_at || new Date(banner.expires_at) > new Date()),
+      ) || null,
+    [banners],
+  );
 
   useEffect(() => {
     setPage(1);
@@ -510,14 +595,71 @@ export default function Home() {
     }
   }
 
-  function requestAdvertBoost(packageName = "Featured advert") {
-    setSupportSubject(`Boost request: ${packageName}`);
-    setSupportMessage(
-      `Hello admin, I want to boost one of my adverts with the ${packageName} package. Please send me the payment instructions and activate it after confirmation.`,
-    );
-    setSupportNotice("");
-    setTab("support");
-    setActionMessage("Choose the advert you want boosted, then send this request to admin.");
+  function requestAdvertBoost(listing?: Listing) {
+    const approved = listing || myListings.find(item => item.status === "approved" && (!item.expires_at || new Date(item.expires_at) > new Date()));
+    if (!approved) {
+      setActionMessage("You need one approved live advert before you can boost visibility.");
+      setTab("mine");
+      return;
+    }
+    setBoostTarget(approved);
+    setBoostError("");
+  }
+
+  async function startBoostPayment(packageKey: string) {
+    if (!boostTarget) return;
+    setBoostBusy(packageKey);
+    setBoostError("");
+    try {
+      const payment = await Promise.race([
+        supabase.functions.invoke("initialize-paystack", {
+          body: { type: "boost", listing_id: boostTarget.id, package: packageKey },
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Paystack took too long to open. Please try again.")), 25000),
+        ),
+      ]);
+      if (payment.error || !payment.data?.authorization_url) {
+        setBoostError(payment.data?.error || payment.error?.message || "Payment could not be started.");
+        setBoostBusy("");
+        return;
+      }
+      window.location.assign(payment.data.authorization_url);
+    } catch (error) {
+      setBoostError(error instanceof Error ? error.message : "Payment could not be started.");
+      setBoostBusy("");
+    }
+  }
+
+  async function startBannerPayment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBannerBusy(true);
+    setBannerError("");
+    const form = new FormData(event.currentTarget);
+    const banner = {
+      package: String(form.get("package") || "banner_marketplace_week"),
+      business_name: String(form.get("business_name") || ""),
+      title: String(form.get("title") || ""),
+      message: String(form.get("message") || ""),
+      target_url: String(form.get("target_url") || ""),
+    };
+    try {
+      const payment = await Promise.race([
+        supabase.functions.invoke("initialize-paystack", { body: { type: "banner", banner } }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Paystack took too long to open. Please try again.")), 25000),
+        ),
+      ]);
+      if (payment.error || !payment.data?.authorization_url) {
+        setBannerError(payment.data?.error || payment.error?.message || "Payment could not be started.");
+        setBannerBusy(false);
+        return;
+      }
+      window.location.assign(payment.data.authorization_url);
+    } catch (error) {
+      setBannerError(error instanceof Error ? error.message : "Payment could not be started.");
+      setBannerBusy(false);
+    }
   }
 
   if (loading) {
@@ -678,6 +820,30 @@ export default function Home() {
             </aside>
 
             <div className="listing-area">
+              {tab === "marketplace" && (
+                <section className={activeBanner ? "public-ad-slot paid" : "public-ad-slot"}>
+                  <div>
+                    <p>ADVERTISE WITH US</p>
+                    {activeBanner ? (
+                      <>
+                        <h3>{activeBanner.title}</h3>
+                        <span>{activeBanner.business_name} · {activeBanner.message}</span>
+                      </>
+                    ) : (
+                      <>
+                        <h3>Put your business in front of Ghanaian buyers.</h3>
+                        <span>Choose a banner package, pay securely with Paystack, then admin reviews before it goes live.</span>
+                      </>
+                    )}
+                  </div>
+                  {activeBanner?.target_url ? (
+                    <a href={activeBanner.target_url} target="_blank" rel="noreferrer">Visit advertiser</a>
+                  ) : (
+                    <button type="button" onClick={() => setBannerOpen(true)}>Advertise here</button>
+                  )}
+                </section>
+              )}
+
               <div className="listing-head">
                 <div>
                   <p>{tab === "marketplace" ? "LATEST LISTINGS" : "SELLER DASHBOARD"}</p>
@@ -725,7 +891,7 @@ export default function Home() {
                                 className="boost-button"
                                 onClick={event => {
                                   event.stopPropagation();
-                                  requestAdvertBoost(`Featured advert for ${item.title} - GH₵10`);
+                                  requestAdvertBoost(item);
                                 }}
                                 type="button"
                               >
@@ -882,6 +1048,29 @@ export default function Home() {
           />
         )}
 
+        {boostTarget && (
+          <BoostPaymentModal
+            listing={boostTarget}
+            busyPackage={boostBusy}
+            error={boostError}
+            onClose={() => {
+              if (!boostBusy) setBoostTarget(null);
+            }}
+            onPay={startBoostPayment}
+          />
+        )}
+
+        {bannerOpen && (
+          <BannerAdvertModal
+            busy={bannerBusy}
+            error={bannerError}
+            onClose={() => {
+              if (!bannerBusy) setBannerOpen(false);
+            }}
+            onSubmit={startBannerPayment}
+          />
+        )}
+
         {soldTarget && (
           <div className="modal-backdrop">
             <section className="customer-dialog" role="dialog" aria-modal="true" aria-labelledby="sold-dialog-title">
@@ -928,6 +1117,115 @@ export default function Home() {
   );
 }
 
+function BoostPaymentModal({
+  listing,
+  busyPackage,
+  error,
+  onClose,
+  onPay,
+}: {
+  listing: Listing;
+  busyPackage: string;
+  error: string;
+  onClose: () => void;
+  onPay: (packageKey: string) => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <section className="customer-dialog boost-pay-dialog">
+        <button className="modal-close" aria-label="Close boost package chooser" disabled={Boolean(busyPackage)} onClick={onClose} type="button">
+          ×
+        </button>
+        <span className="customer-dialog-icon">↑</span>
+        <p className="modal-kicker">BOOST VISIBILITY</p>
+        <h2>Choose a Paystack boost package</h2>
+        <p>
+          You are boosting “{listing.title}”. After Paystack confirms payment, the package will apply automatically.
+        </p>
+        <div className="boost-package-grid">
+          {boostPackages.map(item => (
+            <article key={item.key}>
+              <small>{item.name}</small>
+              <strong>GH₵ {item.price}</strong>
+              <span>{item.benefit}</span>
+              <button disabled={Boolean(busyPackage)} type="button" onClick={() => onPay(item.key)}>
+                {busyPackage === item.key ? "Opening Paystack…" : "Pay with Paystack"}
+              </button>
+            </article>
+          ))}
+        </div>
+        {error && <p className="dialog-error">{error}</p>}
+      </section>
+    </div>
+  );
+}
+
+function BannerAdvertModal({
+  busy,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  busy: boolean;
+  error: string;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <section className="sell-modal banner-advert-modal">
+        <button className="modal-close" aria-label="Close banner advert form" disabled={busy} onClick={onClose} type="button">
+          ×
+        </button>
+        <p className="modal-kicker">PUBLIC BANNER ADVERT</p>
+        <h2>Advertise with us</h2>
+        <p>Choose a banner package, pay securely with Paystack, then your banner goes to admin for review before it appears publicly.</p>
+        <form className="sell-form" onSubmit={onSubmit}>
+          <fieldset className="banner-package-picker full">
+            <legend>Choose banner package</legend>
+            {bannerPackages.map((item, index) => (
+              <label key={item.key}>
+                <input type="radio" name="package" value={item.key} defaultChecked={index === 0} />
+                <span>
+                  <b>{item.name}</b>
+                  <strong>GH₵ {item.price}</strong>
+                  <small>{item.benefit}</small>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <label>
+            Business name
+            <input name="business_name" minLength={2} maxLength={120} required placeholder="e.g. Unique Gadgets" />
+          </label>
+          <label>
+            Banner headline
+            <input name="title" minLength={5} maxLength={120} required placeholder="e.g. Quality laptops available now" />
+          </label>
+          <label className="full">
+            Short message
+            <textarea name="message" minLength={10} maxLength={240} rows={4} required placeholder="Tell buyers what you are promoting." />
+          </label>
+          <label className="full">
+            Website or WhatsApp link
+            <input name="target_url" type="url" placeholder="https://wa.me/233..." />
+            <small>Optional. Leave blank if you want buyers to only see the banner message.</small>
+          </label>
+          {error && <p className="form-error full">{error}</p>}
+          <div className="form-actions full">
+            <button type="button" onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button className="post-button" disabled={busy} type="submit">
+              {busy ? "Opening Paystack…" : "Pay and submit for review"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function withTimeout<T>(promise: PromiseLike<T>, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error(message)), SUPPORT_TIMEOUT_MS);
@@ -971,7 +1269,7 @@ function CustomerDashboard({
   supportTickets: SupportRequest[];
   onOpenListing: (listing: Listing) => void;
   onSell: () => void;
-  onBoostRequest: (packageName?: string) => void;
+  onBoostRequest: (listing?: Listing) => void;
 }) {
   const recentListings = myListings.slice(0, 4);
   const recentReviews = reviews.slice(0, 4);
@@ -1041,8 +1339,8 @@ function CustomerDashboard({
               <b>Featured advert</b>
               <strong>GH₵ 10</strong>
               <span>Promoted badge and better placement for one advert.</span>
-              <button type="button" onClick={() => onBoostRequest("Featured advert - GH₵10")}>
-                Request boost
+              <button type="button" onClick={() => onBoostRequest()}>
+                Choose advert and pay
               </button>
             </article>
             <article>
@@ -1050,8 +1348,8 @@ function CustomerDashboard({
               <b>Top category spot</b>
               <strong>GH₵ 25</strong>
               <span>Your advert gets priority inside its category for more buyer attention.</span>
-              <button type="button" onClick={() => onBoostRequest("Top category spot - GH₵25")}>
-                Request boost
+              <button type="button" onClick={() => onBoostRequest()}>
+                Choose advert and pay
               </button>
             </article>
             <article>
@@ -1059,8 +1357,8 @@ function CustomerDashboard({
               <b>Verified seller</b>
               <strong>GH₵ 80</strong>
               <span>Trust badge, business profile support and stronger buyer confidence.</span>
-              <button type="button" onClick={() => onBoostRequest("Verified seller package - GH₵80")}>
-                Request boost
+              <button type="button" onClick={() => onBoostRequest()}>
+                Choose advert and pay
               </button>
             </article>
           </div>

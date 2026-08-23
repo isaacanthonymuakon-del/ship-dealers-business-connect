@@ -1,1 +1,15 @@
 .customer-dialog{position:relative;width:min(520px,100%);background:#fff;color:#17362d;padding:38px;box-shadow:10px 10px 0 #f2b735}.customer-dialog-icon{display:grid;place-items:center;width:50px;height:50px;border-radius:50%;background:#e0f2e7;color:#23754f;font-size:24px;font-weight:900;margin-bottom:16px}.customer-dialog h2{font:800 32px/1.1 Georgia;margin:5px 35px 12px 0}.customer-dialog>p:not(.modal-kicker){color:#5e6d66;line-height:1.55}.customer-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}.customer-dialog-actions button{border:1px solid #bfc7c2;background:#fff;color:#17362d;padding:13px 17px;font-weight:900;cursor:pointer}.customer-dialog-actions .confirm-action{background:#17362d;color:#fff;border-color:#17362d}.customer-success .customer-dialog-icon{background:#e0f2e7}.dialog-error{background:#f8dfdb!important;color:#8d2d23!important;padding:12px;font-weight:800}@media(max-width:600px){.customer-dialog{padding:30px 20px}.customer-dialog h2{font-size:28px}.customer-dialog-actions{display:grid}.customer-dialog-actions button{width:100%}}
+
+.boost-pay-dialog{width:min(840px,100%)}
+.boost-pay-dialog .boost-package-grid{grid-template-columns:repeat(3,1fr)}
+.boost-pay-dialog .boost-package-grid article{border-color:#d8d0c2}
+@media(max-width:760px){.boost-pay-dialog .boost-package-grid{grid-template-columns:1fr}}
+
+.banner-package-picker{border:1px solid #d8d0c2;padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.banner-package-picker legend{font-size:12px;font-weight:900;padding:0 8px}
+.banner-package-picker label{border:1px solid #ddd8ce;padding:12px;background:#fff;display:grid;grid-template-columns:auto 1fr;align-items:start;gap:9px;cursor:pointer}
+.banner-package-picker span{display:grid;gap:5px}
+.banner-package-picker b{font-size:15px}
+.banner-package-picker strong{font:800 24px Georgia;color:#17362d}
+.banner-package-picker small{color:#66746e;line-height:1.35}
+@media(max-width:760px){.banner-package-picker{grid-template-columns:1fr}}

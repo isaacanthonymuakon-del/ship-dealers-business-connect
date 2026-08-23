@@ -549,3 +549,77 @@
 .ticket-reply p {
   margin: 0 0 6px;
 }
+
+.public-ad-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  background: linear-gradient(135deg, #fff7df 0%, #fff 72%);
+  border: 1px solid #e4d7b5;
+  border-left: 6px solid #f2b735;
+  padding: 18px;
+  margin-bottom: 22px;
+}
+
+.public-ad-slot.paid {
+  background: linear-gradient(135deg, #17362d 0%, #21483d 68%, #f2b735 68%);
+  color: #fff;
+  border-color: #17362d;
+}
+
+.public-ad-slot p {
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 900;
+  color: #ef612e;
+  margin: 0 0 7px;
+}
+
+.public-ad-slot.paid p {
+  color: #f2b735;
+}
+
+.public-ad-slot h3 {
+  font: 800 25px Georgia;
+  margin: 0 0 6px;
+}
+
+.public-ad-slot span {
+  color: #586761;
+  line-height: 1.45;
+}
+
+.public-ad-slot.paid span {
+  color: #e8f0ed;
+}
+
+.public-ad-slot button,
+.public-ad-slot a {
+  border: 0;
+  background: #ef612e;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 900;
+  padding: 13px 16px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.public-ad-slot.paid button,
+.public-ad-slot.paid a {
+  background: #fff;
+  color: #17362d;
+}
+
+@media (max-width: 760px) {
+  .public-ad-slot {
+    display: grid;
+  }
+
+  .public-ad-slot button,
+  .public-ad-slot a {
+    text-align: center;
+    width: 100%;
+  }
+}
