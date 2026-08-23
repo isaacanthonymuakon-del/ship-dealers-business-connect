@@ -510,6 +510,16 @@ export default function Home() {
     }
   }
 
+  function requestAdvertBoost(packageName = "Featured advert") {
+    setSupportSubject(`Boost request: ${packageName}`);
+    setSupportMessage(
+      `Hello admin, I want to boost one of my adverts with the ${packageName} package. Please send me the payment instructions and activate it after confirmation.`,
+    );
+    setSupportNotice("");
+    setTab("support");
+    setActionMessage("Choose the advert you want boosted, then send this request to admin.");
+  }
+
   if (loading) {
     return <div className="auth-loading"><span className="auth-mark">◎</span><p>Loading your marketplace…</p></div>;
   }
@@ -710,16 +720,28 @@ export default function Home() {
                             {item.negotiable && <em>Negotiable</em>}
                           </div>
                           {tab === "mine" && item.status === "approved" && !expired && (
-                            <button
-                              className="sold-button"
-                              onClick={event => {
-                                event.stopPropagation();
-                                markSold(item.id);
-                              }}
-                              type="button"
-                            >
-                              Mark as sold
-                            </button>
+                            <div className="seller-card-actions">
+                              <button
+                                className="boost-button"
+                                onClick={event => {
+                                  event.stopPropagation();
+                                  requestAdvertBoost(`Featured advert for ${item.title} - GH₵10`);
+                                }}
+                                type="button"
+                              >
+                                Boost advert
+                              </button>
+                              <button
+                                className="sold-button"
+                                onClick={event => {
+                                  event.stopPropagation();
+                                  markSold(item.id);
+                                }}
+                                type="button"
+                              >
+                                Mark as sold
+                              </button>
+                            </div>
                           )}
                           {tab === "mine" && expired && (
                             <button
@@ -771,6 +793,7 @@ export default function Home() {
             supportTickets={supportTickets}
             onOpenListing={listing => setSelected(listing)}
             onSell={() => setSellOpen(true)}
+            onBoostRequest={requestAdvertBoost}
           />
         )}
 
@@ -934,6 +957,7 @@ function CustomerDashboard({
   supportTickets,
   onOpenListing,
   onSell,
+  onBoostRequest,
 }: {
   memberName: string;
   myListings: Listing[];
@@ -947,6 +971,7 @@ function CustomerDashboard({
   supportTickets: SupportRequest[];
   onOpenListing: (listing: Listing) => void;
   onSell: () => void;
+  onBoostRequest: (packageName?: string) => void;
 }) {
   const recentListings = myListings.slice(0, 4);
   const recentReviews = reviews.slice(0, 4);
@@ -1000,6 +1025,47 @@ function CustomerDashboard({
       </div>
 
       <div className="dashboard-layout">
+        <section className="dashboard-card dashboard-card-wide boost-revenue-card">
+          <div className="dashboard-section-head">
+            <div>
+              <p>SELL FASTER</p>
+              <h3>Boost your advert visibility</h3>
+            </div>
+          </div>
+          <p className="dashboard-muted">
+            Posting is free. Pay only when you want more buyers to see your advert.
+          </p>
+          <div className="boost-package-grid">
+            <article>
+              <small>Most affordable</small>
+              <b>Featured advert</b>
+              <strong>GH₵ 10</strong>
+              <span>Promoted badge and better placement for one advert.</span>
+              <button type="button" onClick={() => onBoostRequest("Featured advert - GH₵10")}>
+                Request boost
+              </button>
+            </article>
+            <article>
+              <small>Best for fast sales</small>
+              <b>Top category spot</b>
+              <strong>GH₵ 25</strong>
+              <span>Your advert gets priority inside its category for more buyer attention.</span>
+              <button type="button" onClick={() => onBoostRequest("Top category spot - GH₵25")}>
+                Request boost
+              </button>
+            </article>
+            <article>
+              <small>For regular sellers</small>
+              <b>Verified seller</b>
+              <strong>GH₵ 80</strong>
+              <span>Trust badge, business profile support and stronger buyer confidence.</span>
+              <button type="button" onClick={() => onBoostRequest("Verified seller package - GH₵80")}>
+                Request boost
+              </button>
+            </article>
+          </div>
+        </section>
+
         <section className="dashboard-card dashboard-card-wide">
           <div className="dashboard-section-head">
             <div>

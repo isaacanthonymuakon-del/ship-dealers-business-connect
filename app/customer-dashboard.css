@@ -212,6 +212,72 @@
   margin: 0;
 }
 
+.boost-revenue-card {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #17362d 0%, #21483d 58%, #f2b735 58%, #f2b735 100%);
+  color: #fff;
+}
+
+.boost-revenue-card .dashboard-section-head {
+  border-bottom-color: rgba(255, 255, 255, 0.22);
+}
+
+.boost-revenue-card .dashboard-section-head h3,
+.boost-revenue-card .dashboard-muted {
+  color: #fff;
+}
+
+.boost-revenue-card .dashboard-section-head p {
+  color: #f2b735;
+}
+
+.boost-package-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.boost-package-grid article {
+  background: #fff;
+  color: #17362d;
+  border: 1px solid #e6e1d7;
+  padding: 15px;
+  display: grid;
+  gap: 8px;
+}
+
+.boost-package-grid small {
+  color: #ef612e;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.boost-package-grid b {
+  font-size: 17px;
+}
+
+.boost-package-grid strong {
+  font: 800 25px Georgia;
+}
+
+.boost-package-grid span {
+  color: #5d6b65;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.boost-package-grid button {
+  border: 0;
+  background: #ef612e;
+  color: #fff;
+  font-weight: 900;
+  padding: 11px 13px;
+  cursor: pointer;
+}
+
 .messages-shell {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -376,6 +442,10 @@
 
   .dashboard-layout,
   .messages-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .boost-package-grid {
     grid-template-columns: 1fr;
   }
 

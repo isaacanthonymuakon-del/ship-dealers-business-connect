@@ -79,6 +79,28 @@
   line-height: 1.45;
 }
 
+.seller-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  padding: 0 12px 12px;
+}
+
+.seller-card-actions .sold-button,
+.seller-card-actions .boost-button {
+  width: 100%;
+  margin: 0;
+}
+
+.boost-button {
+  border: 0;
+  background: #f2b735;
+  color: #17362d;
+  padding: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 @media (max-width: 950px) {
   .market-body {
     gap: 22px;
@@ -173,6 +195,19 @@
   .sold-button {
     width: calc(100% - 18px);
     margin: 0 9px 9px;
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .seller-card-actions {
+    grid-template-columns: 1fr;
+    padding: 0 9px 9px;
+  }
+
+  .seller-card-actions .sold-button,
+  .seller-card-actions .boost-button {
+    width: 100%;
+    margin: 0;
     padding: 8px;
     font-size: 12px;
   }
