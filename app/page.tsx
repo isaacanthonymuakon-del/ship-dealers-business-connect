@@ -832,7 +832,6 @@ export default function Home() {
                     ) : (
                       <>
                         <h3>Put your business in front of Ghanaian buyers.</h3>
-                        <span>Choose a banner package, pay securely with Paystack, then admin reviews before it goes live.</span>
                       </>
                     )}
                   </div>
