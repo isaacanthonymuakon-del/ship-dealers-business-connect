@@ -1379,44 +1379,12 @@ function SellModal({
   const [busy, setBusy] = useState(false);
   const [uploadedCount, setUploadedCount] = useState(0);
   const [error, setError] = useState("");
-  const [freeListingEligible, setFreeListingEligible] = useState(false);
+  const [freeListingEligible, setFreeListingEligible] = useState(true);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function checkEligibility() {
-      if (isAdmin) {
-        if (!cancelled) {
-          setFreeListingEligible(true);
-          setChecking(false);
-        }
-        return;
-      }
-
-      const { data } = await supabase.auth.getUser();
-      const userId = data.user?.id;
-      if (!userId) {
-        if (!cancelled) setChecking(false);
-        return;
-      }
-
-      const { count, error: countError } = await supabase
-        .from("listings")
-        .select("id", { count: "exact", head: true })
-        .eq("seller_id", userId);
-
-      if (!cancelled) {
-        setFreeListingEligible(!countError && (count || 0) === 0);
-        setChecking(false);
-      }
-    }
-
-    checkEligibility();
-
-    return () => {
-      cancelled = true;
-    };
+    setFreeListingEligible(true);
+    setChecking(false);
   }, [isAdmin]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -1512,7 +1480,7 @@ function SellModal({
       onCreated(
         postingAsAdmin
           ? "Admin advert posted without payment and is now live in the marketplace."
-          : "Your first advert is free and is waiting for admin approval.",
+          : "Your advert has been submitted free and is waiting for admin approval.",
       );
       return;
     }
@@ -1553,35 +1521,18 @@ function SellModal({
         <h2>What are you selling?</h2>
         <p>
           {checking
-            ? "Checking posting options…"
+            ? "Preparing free posting…"
             : isAdmin
-              ? "Admin posting is free. Submit the advert and it will enter review before it appears on the marketplace."
-            : freeListingEligible
-              ? "Your first advert is free. Submit it and the admin will review it before it appears on the marketplace."
-              : "Choose a package, pay securely, then your advert will enter review."}
+              ? "Admin posting is free and can go live immediately without seller payment."
+              : "Posting is free. Submit your advert and admin will review it before it appears on the marketplace."}
         </p>
         <form onSubmit={submit} className="sell-form">
-          <fieldset className="package-picker full">
-            <legend>Choose listing package</legend>
-            <label>
-              <input type="radio" name="package" value="standard" defaultChecked />
-              <b>Standard</b>
-              <span>GH₵10</span>
-              <small>One advert for 30 days</small>
-            </label>
-            <label>
-              <input type="radio" name="package" value="featured" />
-              <b>Featured</b>
-              <span>GH₵25</span>
-              <small>Priority placement for 30 days</small>
-            </label>
-            <label>
-              <input type="radio" name="package" value="business" />
-              <b>Business</b>
-              <span>GH₵80</span>
-              <small>Business seller package</small>
-            </label>
-          </fieldset>
+          <input type="hidden" name="package" value="standard" />
+          <div className="free-posting-card full">
+            <b>Free standard advert</b>
+            <span>No posting fee. Admin approval is required before buyers can see it.</span>
+            <small>Revenue will come from optional boosts, featured adverts, verified seller packages and banner adverts.</small>
+          </div>
           <label className="full">
             Product photos (1 to 6)
             <input
@@ -1660,10 +1611,10 @@ function SellModal({
               {busy
                 ? uploadedCount < files.length
                   ? `Uploading photos ${uploadedCount} of ${files.length}…`
-                  : "Opening secure payment…"
-                : freeListingEligible || isAdmin
-                  ? "Submit for free review"
-                  : "Continue to secure payment"}
+                  : "Submitting for review…"
+                : isAdmin
+                  ? "Post advert free"
+                  : "Submit for free review"}
             </button>
           </div>
         </form>

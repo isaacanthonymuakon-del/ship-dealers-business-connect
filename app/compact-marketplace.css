@@ -56,6 +56,29 @@
   margin-top: 3px;
 }
 
+.free-posting-card {
+  border: 1px solid #d9d3c5;
+  border-left: 5px solid #12a85b;
+  background: #f8fbf6;
+  padding: 15px 17px;
+  display: grid;
+  gap: 5px;
+}
+
+.free-posting-card b {
+  font-size: 16px;
+}
+
+.free-posting-card span {
+  color: #17362d;
+  font-size: 13px;
+}
+
+.free-posting-card small {
+  color: #5d6b65;
+  line-height: 1.45;
+}
+
 @media (max-width: 950px) {
   .market-body {
     gap: 22px;
