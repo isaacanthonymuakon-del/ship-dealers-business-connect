@@ -7,6 +7,7 @@ import "./marketplace.css";
 import "./listing-detail.css";
 import "./payment.css";
 import "./mobile.css";
+import "./compact-marketplace.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

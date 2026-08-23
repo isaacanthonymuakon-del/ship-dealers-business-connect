@@ -1,0 +1,188 @@
+/* Customer marketplace card sizing overrides.
+   This file is visual only: it does not change database, auth, payment, admin, or posting logic. */
+
+.product-grid {
+  gap: 13px;
+}
+
+.product-card {
+  border-radius: 8px;
+}
+
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 3px 3px 0 #f2b735;
+}
+
+.product-image {
+  height: 150px;
+}
+
+.product-copy {
+  padding: 12px;
+  min-height: 132px;
+}
+
+.product-copy p {
+  font-size: 9px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.product-copy h3 {
+  font: 800 17px/1.18 Georgia, serif;
+  margin: 6px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.product-copy small {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.product-copy strong {
+  font-size: 18px;
+  padding-top: 10px;
+}
+
+.product-copy em {
+  margin-top: 3px;
+}
+
+@media (max-width: 950px) {
+  .market-body {
+    gap: 22px;
+  }
+
+  .product-grid {
+    gap: 12px;
+  }
+
+  .product-image {
+    height: 135px;
+  }
+
+  .product-copy {
+    min-height: 124px;
+  }
+}
+
+@media (max-width: 620px) {
+  .market-body {
+    padding-top: 20px;
+    padding-bottom: 55px;
+  }
+
+  .listing-head {
+    margin-bottom: 14px;
+    align-items: flex-start;
+  }
+
+  .listing-head h2 {
+    font-size: 25px;
+  }
+
+  .listing-head > strong {
+    font-size: 11px;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .product-card {
+    border-radius: 7px;
+  }
+
+  .product-image {
+    height: 108px;
+  }
+
+  .product-image > span {
+    bottom: 6px;
+    right: 6px;
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+
+  .product-image > i {
+    top: 6px;
+    left: 6px;
+    padding: 3px 7px;
+    font-size: 8px;
+  }
+
+  .product-copy {
+    padding: 9px;
+    min-height: 112px;
+  }
+
+  .product-copy p {
+    font-size: 8px;
+  }
+
+  .product-copy h3 {
+    font-size: 14px;
+    margin: 5px 0;
+  }
+
+  .product-copy small {
+    font-size: 10px;
+  }
+
+  .product-copy strong {
+    font-size: 15px;
+    padding-top: 8px;
+  }
+
+  .product-copy em {
+    font-size: 9px;
+  }
+
+  .sold-button {
+    width: calc(100% - 18px);
+    margin: 0 9px 9px;
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .hero-search select,
+  .hero-search input {
+    padding: 13px;
+  }
+
+  .quick-filters {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 370px) {
+  .product-grid {
+    gap: 7px;
+  }
+
+  .product-image {
+    height: 96px;
+  }
+
+  .product-copy {
+    padding: 8px;
+    min-height: 106px;
+  }
+
+  .product-copy h3 {
+    font-size: 13px;
+  }
+
+  .product-copy strong {
+    font-size: 14px;
+  }
+}
