@@ -1882,19 +1882,10 @@ function SellModal({
         </button>
         <p className="modal-kicker">CREATE AN ADVERT</p>
         <h2>What are you selling?</h2>
-        <p>
-          {checking
-            ? "Preparing free posting…"
-            : isAdmin
-              ? "Admin posting is free and can go live immediately without seller payment."
-              : "Posting is free. Submit your advert and admin will review it before it appears on the marketplace."}
-        </p>
         <form onSubmit={submit} className="sell-form">
           <input type="hidden" name="package" value="standard" />
           <div className="free-posting-card full">
-            <b>Free standard advert</b>
-            <span>No posting fee. Admin approval is required before buyers can see it.</span>
-            <small>Revenue will come from optional boosts, featured adverts, verified seller packages and banner adverts.</small>
+            <b>FREE STANDARD ADVERT</b>
           </div>
           <label className="full">
             Product photos (1 to 6)
