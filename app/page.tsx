@@ -1053,7 +1053,8 @@ export default function Home() {
             busyPackage={boostBusy}
             error={boostError}
             onClose={() => {
-              if (!boostBusy) setBoostTarget(null);
+              setBoostBusy("");
+              setBoostTarget(null);
             }}
             onPay={startBoostPayment}
           />
@@ -1132,7 +1133,7 @@ function BoostPaymentModal({
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <section className="customer-dialog boost-pay-dialog">
-        <button className="modal-close" aria-label="Close boost package chooser" disabled={Boolean(busyPackage)} onClick={onClose} type="button">
+        <button className="modal-close" aria-label="Close boost package chooser" onClick={onClose} type="button">
           ×
         </button>
         <span className="customer-dialog-icon">↑</span>
