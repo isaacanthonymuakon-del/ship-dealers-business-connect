@@ -363,6 +363,30 @@ export default function Home() {
   }, [showNotifications]);
 
   useEffect(() => {
+    if (!memberId) return;
+
+    const refresh = () => {
+      void loadPrimaryData();
+      void loadMemberData(memberId);
+    };
+
+    const interval = window.setInterval(refresh, 15000);
+    const channel = supabase
+      .channel(`customer-live-refresh-${memberId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "listings" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "banner_ads" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${memberId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_requests", filter: `user_id=eq.${memberId}` }, refresh)
+      .subscribe();
+
+    return () => {
+      window.clearInterval(interval);
+      void supabase.removeChannel(channel);
+    };
+  }, [loadMemberData, loadPrimaryData, memberId]);
+
+  useEffect(() => {
     if (tab === "messages" && activeThreadId) {
       void markThreadRead(activeThreadId);
     }
@@ -1065,7 +1089,8 @@ export default function Home() {
             busy={bannerBusy}
             error={bannerError}
             onClose={() => {
-              if (!bannerBusy) setBannerOpen(false);
+              setBannerBusy(false);
+              setBannerOpen(false);
             }}
             onSubmit={startBannerPayment}
           />
@@ -1174,7 +1199,7 @@ function BannerAdvertModal({
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <section className="sell-modal banner-advert-modal">
-        <button className="modal-close" aria-label="Close banner advert form" disabled={busy} onClick={onClose} type="button">
+        <button className="modal-close" aria-label="Close banner advert form" onClick={onClose} type="button">
           ×
         </button>
         <p className="modal-kicker">PUBLIC BANNER ADVERT</p>
@@ -1213,7 +1238,7 @@ function BannerAdvertModal({
           </label>
           {error && <p className="form-error full">{error}</p>}
           <div className="form-actions full">
-            <button type="button" onClick={onClose} disabled={busy}>
+            <button type="button" onClick={onClose}>
               Cancel
             </button>
             <button className="post-button" disabled={busy} type="submit">

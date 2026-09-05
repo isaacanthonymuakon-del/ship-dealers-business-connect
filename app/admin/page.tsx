@@ -97,6 +97,29 @@ export default function AdminPortal() {
     }
   }, [reviewTarget]);
 
+  useEffect(() => {
+    if (state !== "ready") return;
+
+    const refresh = () => {
+      void loadDashboard();
+    };
+
+    const interval = window.setInterval(refresh, 15000);
+    const channel = supabase
+      .channel("admin-live-refresh")
+      .on("postgres_changes", { event: "*", schema: "public", table: "listings" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "banner_ads" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "listing_reports" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_requests" }, refresh)
+      .subscribe();
+
+    return () => {
+      window.clearInterval(interval);
+      void supabase.removeChannel(channel);
+    };
+  }, [loadDashboard, state, supabase]);
+
   async function signOut() { await supabase.auth.signOut(); setListings([]); setPayments([]); setDataReady(false); setState("signed_out"); }
   async function moderate(id:string,status:"approved"|"rejected",reason:string|null=null) {
     if (status === "rejected" && !reason?.trim()) { setMessage("Enter a reason before rejecting the advert."); return; }
